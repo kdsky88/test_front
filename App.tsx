@@ -12,7 +12,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { completeTodo, createTodo, getTodos, Todo } from './src/api/todos';
+import {
+  ApiTodoClient,
+  Todo,
+  formatInvalidIdError,
+  formatMissingContentError,
+  handleTodoCommand,
+  isTodoCompleted,
+} from './src/api/todos';
 import { API_BASE_URL } from './src/config';
 
 type CommandResult =
@@ -20,96 +27,52 @@ type CommandResult =
   | { type: 'success'; message: string }
   | { type: 'error'; message: string };
 
-const extractCompleteId = (command: string) => {
-  const match = command.match(/^todo완료\s+#?(\d+)$/);
-  return match ? Number(match[1]) : null;
-};
-
-const getCommandHelp = (command: string) => {
-  if (command.startsWith('todo추가')) {
-    return '예: todo추가 장보기';
-  }
-
-  if (command.startsWith('todo완료')) {
-    return '예: todo완료 #3';
-  }
-
-  return '사용 가능: todo추가 [내용], todo목록, todo완료 #[ID]';
-};
+const DEMO_DISCORD_USER_ID = '1508055455258378370';
 
 export default function App() {
   const [apiUrl, setApiUrl] = useState(API_BASE_URL);
-  const [accessToken, setAccessToken] = useState('');
   const [command, setCommand] = useState('todo목록');
   const [todos, setTodos] = useState<Todo[]>([]);
   const [result, setResult] = useState<CommandResult>({
     type: 'idle',
-    message: '커맨드를 실행하면 TODO API 응답이 여기에 표시됩니다.',
+    message: '커맨드를 실행하면 화면기획 기준 응답 문구가 표시됩니다.',
   });
   const [isLoading, setIsLoading] = useState(false);
 
   const activeCount = useMemo(
-    () => todos.filter((todo) => todo.status !== 'DONE').length,
+    () => todos.filter((todo) => !isTodoCompleted(todo)).length,
     [todos],
   );
 
-  const refreshTodos = async () => {
-    const page = await getTodos(apiUrl, accessToken);
-    setTodos(page.content);
-    return page.content;
-  };
-
   const runCommand = async () => {
-    const normalizedCommand = command.trim();
     setIsLoading(true);
 
     try {
-      if (normalizedCommand === 'todo목록') {
-        const nextTodos = await refreshTodos();
+      const client = new ApiTodoClient(apiUrl);
+      const commandResult = await handleTodoCommand(command, DEMO_DISCORD_USER_ID, client);
+
+      if (!commandResult) {
         setResult({
-          type: 'success',
-          message: nextTodos.length
-            ? `TODO ${nextTodos.length}건을 불러왔습니다.`
-            : '등록된 TODO가 없습니다.',
+          type: 'error',
+          message: '사용 가능: todo추가 [내용], todo목록, todo완료 #[ID], todo삭제 #[ID]',
         });
         return;
       }
 
-      if (normalizedCommand.startsWith('todo추가 ')) {
-        const title = normalizedCommand.replace(/^todo추가\s+/, '').trim();
-
-        if (!title) {
-          throw new Error('추가할 내용을 입력해 주세요.');
-        }
-
-        const created = await createTodo(apiUrl, accessToken, title);
-        await refreshTodos();
-        setResult({
-          type: 'success',
-          message: `#${created.id} TODO가 추가되었습니다: ${created.title}`,
-        });
-        setCommand('todo목록');
-        return;
-      }
-
-      const completeId = extractCompleteId(normalizedCommand);
-      if (completeId !== null) {
-        const completed = await completeTodo(apiUrl, accessToken, completeId);
-        await refreshTodos();
-        setResult({
-          type: 'success',
-          message: `#${completed.id} TODO를 완료 처리했습니다: ${completed.title}`,
-        });
-        setCommand('todo목록');
-        return;
-      }
-
-      throw new Error(getCommandHelp(normalizedCommand));
-    } catch (error) {
       setResult({
-        type: 'error',
-        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        type: commandResult.ok ? 'success' : 'error',
+        message: commandResult.messages.join('\n\n'),
       });
+
+      if (commandResult.todos) {
+        setTodos(commandResult.todos);
+      } else if (commandResult.shouldRefresh) {
+        setTodos(await client.listTodos());
+      }
+
+      if (commandResult.ok && command !== 'todo목록') {
+        setCommand('todo목록');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +88,7 @@ export default function App() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Text style={styles.eyebrow}>TODO 리스트</Text>
-            <Text style={styles.title}>커맨드로 TODO를 추가하고 완료 처리합니다.</Text>
+            <Text style={styles.title}>커맨드로 TODO를 관리합니다.</Text>
           </View>
 
           <View style={styles.panel}>
@@ -137,17 +100,6 @@ export default function App() {
               placeholder="http://localhost:8080"
               style={styles.input}
               value={apiUrl}
-            />
-
-            <Text style={styles.label}>Access Token</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              onChangeText={setAccessToken}
-              placeholder="로그인 API에서 받은 JWT accessToken"
-              secureTextEntry
-              style={styles.input}
-              value={accessToken}
             />
           </View>
 
@@ -179,11 +131,17 @@ export default function App() {
                 )}
               </Pressable>
             </View>
-            <Text style={styles.helpText}>todo추가 [내용] · todo목록 · todo완료 #[ID]</Text>
+            <Text style={styles.helpText}>todo추가 [내용] · todo목록 · todo완료 #[ID] · todo삭제 #[ID]</Text>
           </View>
 
           <View style={[styles.resultBox, styles[`${result.type}Result`]]}>
             <Text style={styles.resultText}>{result.message}</Text>
+          </View>
+
+          <View style={styles.quickErrors}>
+            <Text style={styles.quickErrorText}>{formatMissingContentError()}</Text>
+            <Text style={styles.quickErrorText}>{formatInvalidIdError()}</Text>
+            <Text style={styles.quickErrorText}>❌ 이미 완료된 항목입니다. (#1)</Text>
           </View>
 
           <View style={styles.listHeader}>
@@ -193,22 +151,17 @@ export default function App() {
 
           {todos.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>표시할 TODO가 없습니다.</Text>
+              <Text style={styles.emptyText}>📋 등록된 todo가 없습니다.</Text>
+              <Text style={styles.emptyHelp}>추가: todo추가 [내용]</Text>
             </View>
           ) : (
             todos.map((todo) => (
               <View key={todo.id} style={styles.todoItem}>
                 <View style={styles.todoTitleRow}>
                   <Text style={styles.todoTitle}>
-                    #{todo.id} {todo.title}
-                  </Text>
-                  <Text style={[styles.statusBadge, todo.status === 'DONE' && styles.doneBadge]}>
-                    {todo.status}
+                    #{todo.id} {isTodoCompleted(todo) ? '[✓]' : '[ ]'} {todo.title}
                   </Text>
                 </View>
-                <Text style={styles.metaText}>우선순위 {todo.priority}</Text>
-                {todo.dueDate ? <Text style={styles.metaText}>마감 {todo.dueDate}</Text> : null}
-                {todo.description ? <Text style={styles.description}>{todo.description}</Text> : null}
               </View>
             ))
           )}
@@ -318,6 +271,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  quickErrors: {
+    gap: 6,
+  },
+  quickErrorText: {
+    color: '#991b1b',
+    fontSize: 13,
+  },
   listHeader: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -339,11 +299,17 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     borderRadius: 8,
     borderWidth: 1,
+    gap: 6,
     padding: 24,
   },
   emptyText: {
-    color: '#6b7280',
+    color: '#111827',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  emptyHelp: {
+    color: '#6b7280',
+    fontSize: 13,
   },
   todoItem: {
     backgroundColor: '#ffffff',
@@ -365,29 +331,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 22,
-  },
-  statusBadge: {
-    backgroundColor: '#eef2ff',
-    borderRadius: 999,
-    color: '#3730a3',
-    fontSize: 11,
-    fontWeight: '800',
-    overflow: 'hidden',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  doneBadge: {
-    backgroundColor: '#dcfce7',
-    color: '#166534',
-  },
-  metaText: {
-    color: '#6b7280',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  description: {
-    color: '#374151',
-    fontSize: 14,
-    lineHeight: 20,
   },
 });
