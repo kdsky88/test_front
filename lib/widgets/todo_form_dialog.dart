@@ -6,8 +6,9 @@ import '../state/todo_notifier.dart';
 class TodoFormDialog extends StatefulWidget {
   final Todo? todo;
   final TodoNotifier notifier;
+  final DateTime? initialDueAt;
 
-  const TodoFormDialog({super.key, this.todo, required this.notifier});
+  const TodoFormDialog({super.key, this.todo, required this.notifier, this.initialDueAt});
 
   @override
   State<TodoFormDialog> createState() => _TodoFormDialogState();
@@ -30,7 +31,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _descCtrl = TextEditingController(text: widget.todo?.description ?? '');
-    _dueAt = widget.todo?.dueAt;
+    _dueAt = widget.todo?.dueAt ?? widget.initialDueAt;
   }
 
   @override

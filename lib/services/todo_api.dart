@@ -85,6 +85,25 @@ class TodoApi {
     throw _parseError(response);
   }
 
+  static Future<Map<String, List<Todo>>> getCalendar({
+    required int year,
+    required int month,
+  }) async {
+    final uri = Uri.parse('$baseUrl/todos/calendar').replace(
+      queryParameters: {'year': '$year', 'month': '$month'},
+    );
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>;
+      return data.map((date, todos) => MapEntry(
+        date,
+        (todos as List).map((t) => Todo.fromJson(t as Map<String, dynamic>)).toList(),
+      ));
+    }
+    throw _parseError(response);
+  }
+
   static Future<void> deleteTodo(String id) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/todos/$id'),
