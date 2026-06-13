@@ -31,10 +31,14 @@ class TodoApi {
 
   static Future<Todo> createTodo({
     required String title,
+    required TodoPriority priority,
     String? description,
     String? dueAt,
   }) async {
-    final body = <String, dynamic>{'title': title};
+    final body = <String, dynamic>{
+      'title': title,
+      'priority': priority.apiValue,
+    };
     if (description != null) body['description'] = description;
     if (dueAt != null) body['dueAt'] = dueAt;
 
@@ -56,6 +60,7 @@ class TodoApi {
     String? description,
     String? dueAt,
     bool? completed,
+    TodoPriority? priority,
     bool clearDescription = false,
     bool clearDueAt = false,
   }) async {
@@ -72,6 +77,7 @@ class TodoApi {
       body['dueAt'] = dueAt;
     }
     if (completed != null) body['completed'] = completed;
+    if (priority != null) body['priority'] = priority.apiValue;
 
     final response = await http.patch(
       Uri.parse('$baseUrl/todos/$id'),

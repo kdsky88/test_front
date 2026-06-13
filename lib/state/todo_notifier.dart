@@ -54,6 +54,14 @@ class TodoNotifier extends ChangeNotifier {
         limit: kPageLimit,
       );
       if (seq != _listSeq) return; // stale response
+
+      final lastValidPage = result.totalPages > 0 ? result.totalPages : 1;
+      if (_page > lastValidPage || (result.data.isEmpty && _page > 1)) {
+        _page = lastValidPage < _page ? lastValidPage : _page - 1;
+        await loadTodos();
+        return;
+      }
+
       _todos = result.data;
       _totalPages = result.totalPages;
       _total = result.total;
@@ -70,10 +78,10 @@ class TodoNotifier extends ChangeNotifier {
       _listStatus = ListStatus.error;
       _listError = e.error.message;
       notifyListeners();
-    } catch (_) {
+    } catch (error) {
       if (seq != _listSeq) return;
       _listStatus = ListStatus.error;
-      _listError = '서버에 연결할 수 없습니다. 다시 시도해주세요.';
+      _listError = _dataErrorMessage(error);
       notifyListeners();
     }
   }
@@ -96,12 +104,14 @@ class TodoNotifier extends ChangeNotifier {
   /// Returns null on success, error message on failure.
   Future<String?> createTodo({
     required String title,
+    required TodoPriority priority,
     String? description,
     String? dueAt,
   }) async {
     try {
       await TodoApi.createTodo(
         title: title,
+        priority: priority,
         description: description?.isNotEmpty == true ? description : null,
         dueAt: dueAt,
       );
@@ -112,8 +122,8 @@ class TodoNotifier extends ChangeNotifier {
       return null;
     } on ApiException catch (e) {
       return e.error.message;
-    } catch (_) {
-      return '서버에 연결할 수 없습니다. 다시 시도해주세요.';
+    } catch (error) {
+      return _dataErrorMessage(error);
     }
   }
 
@@ -121,6 +131,7 @@ class TodoNotifier extends ChangeNotifier {
   Future<(Todo?, ApiException?, String?)> updateTodo({
     required String id,
     required String title,
+    required TodoPriority priority,
     String? description,
     String? dueAt,
     bool clearDescription = false,
@@ -130,24 +141,21 @@ class TodoNotifier extends ChangeNotifier {
       final updated = await TodoApi.updateTodo(
         id: id,
         title: title,
+        priority: priority,
         description: description,
         dueAt: dueAt,
         clearDescription: clearDescription,
         clearDueAt: clearDueAt,
       );
-      final idx = _todos.indexWhere((t) => t.id == id);
-      if (idx >= 0) {
-        _todos = List.of(_todos)..[idx] = updated;
-        notifyListeners();
-      }
+      await loadTodos();
       return (updated, null, null);
     } on ApiException catch (e) {
       if (e.error.code == 'TODO_NOT_FOUND') {
         await loadTodos();
       }
       return (null, e, e.error.message);
-    } catch (_) {
-      return (null, null, '서버에 연결할 수 없습니다. 다시 시도해주세요.');
+    } catch (error) {
+      return (null, null, _dataErrorMessage(error));
     }
   }
 
@@ -230,5 +238,12 @@ class TodoNotifier extends ChangeNotifier {
   void clearItemError(String id) {
     _itemErrors.remove(id);
     notifyListeners();
+  }
+
+  String _dataErrorMessage(Object error) {
+    if (error is FormatException || error is TypeError) {
+      return '응답 데이터가 올바르지 않습니다. 다시 시도해주세요.';
+    }
+    return '서버에 연결할 수 없습니다. 다시 시도해주세요.';
   }
 }

@@ -4,6 +4,7 @@ import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 import 'todo_form_dialog.dart';
 import 'delete_dialog.dart';
+import 'priority_badge.dart';
 
 class TodoItemWidget extends StatelessWidget {
   final Todo todo;
@@ -58,6 +59,8 @@ class TodoItemWidget extends StatelessWidget {
                       children: [
                         Row(
                           children: [
+                            PriorityBadge(priority: todo.priority),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 todo.title,

@@ -68,10 +68,10 @@ class CalendarNotifier extends ChangeNotifier {
       _status = CalendarStatus.error;
       _error = e.error.message;
       notifyListeners();
-    } catch (_) {
+    } catch (error) {
       if (seq != _seq) return;
       _status = CalendarStatus.error;
-      _error = '서버에 연결할 수 없습니다. 다시 시도해주세요.';
+      _error = _dataErrorMessage(error);
       notifyListeners();
     }
   }
@@ -175,5 +175,12 @@ class CalendarNotifier extends ChangeNotifier {
       for (final e in _calendarData.entries)
         e.key: e.value.where((t) => t.id != id).toList(),
     };
+  }
+
+  String _dataErrorMessage(Object error) {
+    if (error is FormatException || error is TypeError) {
+      return '응답 데이터가 올바르지 않습니다. 다시 시도해주세요.';
+    }
+    return '서버에 연결할 수 없습니다. 다시 시도해주세요.';
   }
 }
