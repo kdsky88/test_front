@@ -4,6 +4,15 @@ import '../services/todo_api.dart';
 
 enum CalendarStatus { idle, loading, error }
 
+List<Todo> sortCalendarTodosByPriority(Iterable<Todo> todos) {
+  final indexedTodos = todos.indexed.toList();
+  indexedTodos.sort((a, b) {
+    final priorityOrder = a.$2.priority.index.compareTo(b.$2.priority.index);
+    return priorityOrder != 0 ? priorityOrder : a.$1.compareTo(b.$1);
+  });
+  return indexedTodos.map((entry) => entry.$2).toList();
+}
+
 class CalendarNotifier extends ChangeNotifier {
   late int _year;
   late int _month;
@@ -60,7 +69,10 @@ class CalendarNotifier extends ChangeNotifier {
     try {
       final data = await TodoApi.getCalendar(year: _year, month: _month);
       if (seq != _seq) return;
-      _calendarData = data;
+      _calendarData = {
+        for (final entry in data.entries)
+          entry.key: sortCalendarTodosByPriority(entry.value),
+      };
       _status = CalendarStatus.idle;
       notifyListeners();
     } on ApiException catch (e) {
@@ -166,7 +178,9 @@ class CalendarNotifier extends ChangeNotifier {
   void _replaceTodo(String id, Todo updated) {
     _calendarData = {
       for (final e in _calendarData.entries)
-        e.key: e.value.map((t) => t.id == id ? updated : t).toList(),
+        e.key: sortCalendarTodosByPriority(
+          e.value.map((t) => t.id == id ? updated : t),
+        ),
     };
   }
 
