@@ -18,11 +18,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descCtrl;
   DateTime? _dueAt;
+  late TodoPriority _priority;
   bool _submitting = false;
   String? _generalError;
   String? _titleError;
   String? _descError;
   String? _dueAtError;
+  String? _priorityError;
 
   bool get _isEdit => widget.todo != null;
 
@@ -32,6 +34,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _descCtrl = TextEditingController(text: widget.todo?.description ?? '');
     _dueAt = widget.todo?.dueAt ?? widget.initialDueAt;
+    _priority = widget.todo?.priority ?? TodoPriority.medium;
   }
 
   @override
@@ -78,6 +81,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       _titleError = null;
       _descError = null;
       _dueAtError = null;
+      _priorityError = null;
     });
 
     final normalizedTitle = _normalizeTitle(_titleCtrl.text);
@@ -88,12 +92,14 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     String? titleErr;
     String? descErr;
     String? dueErr;
+    String? priorityErr;
 
     if (_isEdit) {
       final todo = widget.todo!;
       final (_, apiEx, msg) = await widget.notifier.updateTodo(
         id: todo.id,
         title: normalizedTitle,
+        priority: _priority,
         description: desc,
         dueAt: dueAtStr,
         clearDescription: desc == null,
@@ -105,12 +111,16 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
           titleErr = apiEx.error.fields?['title'];
           descErr = apiEx.error.fields?['description'];
           dueErr = apiEx.error.fields?['dueAt'];
-          if (titleErr != null || descErr != null || dueErr != null) errorMsg = null;
+          priorityErr = apiEx.error.fields?['priority'];
+          if (titleErr != null || descErr != null || dueErr != null || priorityErr != null) {
+            errorMsg = null;
+          }
         }
       }
     } else {
       errorMsg = await widget.notifier.createTodo(
         title: normalizedTitle,
+        priority: _priority,
         description: desc,
         dueAt: dueAtStr,
       );
@@ -119,7 +129,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     if (!mounted) return;
     setState(() => _submitting = false);
 
-    if (errorMsg == null && titleErr == null && descErr == null && dueErr == null) {
+    if (errorMsg == null &&
+        titleErr == null &&
+        descErr == null &&
+        dueErr == null &&
+        priorityErr == null) {
       Navigator.of(context).pop(true);
     } else {
       setState(() {
@@ -127,6 +141,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         _titleError = titleErr;
         _descError = descErr;
         _dueAtError = dueErr;
+        _priorityError = priorityErr;
       });
     }
   }
@@ -187,6 +202,36 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
               enabled: !_submitting,
               onChanged: (_) => setState(() {}),
             ),
+            const SizedBox(height: 8),
+            Text('우선순위', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 6),
+            SegmentedButton<TodoPriority>(
+              segments: TodoPriority.values
+                  .map(
+                    (priority) => ButtonSegment<TodoPriority>(
+                      value: priority,
+                      label: Text(priority.label),
+                    ),
+                  )
+                  .toList(),
+              selected: {_priority},
+              onSelectionChanged: _submitting
+                  ? null
+                  : (selected) {
+                      setState(() {
+                        _priority = selected.first;
+                        _priorityError = null;
+                      });
+                    },
+            ),
+            if (_priorityError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _priorityError!,
+                  style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+                ),
+              ),
             const SizedBox(height: 8),
             Row(
               children: [

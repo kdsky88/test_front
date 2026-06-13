@@ -5,6 +5,7 @@ import '../state/calendar_notifier.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_form_dialog.dart';
 import '../widgets/delete_dialog.dart';
+import '../widgets/priority_badge.dart';
 
 class CalendarScreen extends StatefulWidget {
   final CalendarNotifier calendarNotifier;
@@ -310,6 +311,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     children: [
                       Row(
                         children: [
+                          PriorityBadge(priority: todo.priority),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               todo.title,

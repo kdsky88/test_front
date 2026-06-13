@@ -4,6 +4,15 @@ import '../services/todo_api.dart';
 
 enum CalendarStatus { idle, loading, error }
 
+List<Todo> sortCalendarTodosByPriority(Iterable<Todo> todos) {
+  final indexedTodos = todos.indexed.toList();
+  indexedTodos.sort((a, b) {
+    final priorityOrder = a.$2.priority.index.compareTo(b.$2.priority.index);
+    return priorityOrder != 0 ? priorityOrder : a.$1.compareTo(b.$1);
+  });
+  return indexedTodos.map((entry) => entry.$2).toList();
+}
+
 class CalendarNotifier extends ChangeNotifier {
   late int _year;
   late int _month;
@@ -60,7 +69,10 @@ class CalendarNotifier extends ChangeNotifier {
     try {
       final data = await TodoApi.getCalendar(year: _year, month: _month);
       if (seq != _seq) return;
-      _calendarData = data;
+      _calendarData = {
+        for (final entry in data.entries)
+          entry.key: sortCalendarTodosByPriority(entry.value),
+      };
       _status = CalendarStatus.idle;
       notifyListeners();
     } on ApiException catch (e) {
@@ -68,10 +80,10 @@ class CalendarNotifier extends ChangeNotifier {
       _status = CalendarStatus.error;
       _error = e.error.message;
       notifyListeners();
-    } catch (_) {
+    } catch (error) {
       if (seq != _seq) return;
       _status = CalendarStatus.error;
-      _error = '서버에 연결할 수 없습니다. 다시 시도해주세요.';
+      _error = _dataErrorMessage(error);
       notifyListeners();
     }
   }
@@ -166,7 +178,9 @@ class CalendarNotifier extends ChangeNotifier {
   void _replaceTodo(String id, Todo updated) {
     _calendarData = {
       for (final e in _calendarData.entries)
-        e.key: e.value.map((t) => t.id == id ? updated : t).toList(),
+        e.key: sortCalendarTodosByPriority(
+          e.value.map((t) => t.id == id ? updated : t),
+        ),
     };
   }
 
@@ -175,5 +189,12 @@ class CalendarNotifier extends ChangeNotifier {
       for (final e in _calendarData.entries)
         e.key: e.value.where((t) => t.id != id).toList(),
     };
+  }
+
+  String _dataErrorMessage(Object error) {
+    if (error is FormatException || error is TypeError) {
+      return '응답 데이터가 올바르지 않습니다. 다시 시도해주세요.';
+    }
+    return '서버에 연결할 수 없습니다. 다시 시도해주세요.';
   }
 }

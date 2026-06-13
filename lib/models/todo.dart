@@ -1,8 +1,27 @@
+enum TodoPriority {
+  high('HIGH', '높음'),
+  medium('MEDIUM', '보통'),
+  low('LOW', '낮음');
+
+  const TodoPriority(this.apiValue, this.label);
+
+  final String apiValue;
+  final String label;
+
+  static TodoPriority fromJson(dynamic value) {
+    return TodoPriority.values.firstWhere(
+      (priority) => priority.apiValue == value,
+      orElse: () => throw const FormatException('잘못된 우선순위 응답입니다.'),
+    );
+  }
+}
+
 class Todo {
   final String id;
   final String title;
   final String? description;
   final bool completed;
+  final TodoPriority priority;
   final DateTime? dueAt;
   final DateTime? completedAt;
   final DateTime createdAt;
@@ -13,6 +32,7 @@ class Todo {
     required this.title,
     this.description,
     required this.completed,
+    required this.priority,
     this.dueAt,
     this.completedAt,
     required this.createdAt,
@@ -25,6 +45,7 @@ class Todo {
       title: json['title'] as String,
       description: json['description'] as String?,
       completed: json['completed'] as bool,
+      priority: TodoPriority.fromJson(json['priority']),
       dueAt: _parseDate(json['dueAt']),
       completedAt: _parseDate(json['completedAt']),
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -50,6 +71,7 @@ class Todo {
     String? title,
     String? description,
     bool? completed,
+    TodoPriority? priority,
     DateTime? dueAt,
     DateTime? completedAt,
     bool clearDueAt = false,
@@ -61,6 +83,7 @@ class Todo {
       title: title ?? this.title,
       description: description ?? this.description,
       completed: completed ?? this.completed,
+      priority: priority ?? this.priority,
       dueAt: clearDueAt ? null : (dueAt ?? this.dueAt),
       completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       createdAt: createdAt,
