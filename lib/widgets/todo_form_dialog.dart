@@ -73,8 +73,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     }
 
     String? noteErr;
-    if (_noteCtrl.text.length > 2000) {
-      noteErr = '메모는 2,000자 이하로 입력해주세요.';
+    if (_noteCtrl.text.length > 1000) {
+      noteErr = '메모는 1,000자 이하로 입력해주세요.';
     }
 
     setState(() {
@@ -244,11 +244,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
               decoration: InputDecoration(
                 labelText: '메모(상세 설명)',
                 errorText: _noteError,
-                counterText: '${_noteCtrl.text.length}/2000',
+                counterText: '${_noteCtrl.text.length}/1000',
               ),
               minLines: 3,
               maxLines: 6,
-              maxLength: 2010,
+              maxLength: 1010,
               enabled: !_submitting,
               onChanged: (_) => setState(() {}),
             ),
