@@ -13,12 +13,33 @@ class TodoListScreen extends StatefulWidget {
 }
 
 class _TodoListScreenState extends State<TodoListScreen> {
+  late final TextEditingController _searchCtrl;
+  String _lastSyncedSearchQuery = '';
+
   @override
   void initState() {
     super.initState();
+    _searchCtrl = TextEditingController();
+    widget.notifier.addListener(_syncSearchController);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.notifier.loadTodos(initial: true);
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant TodoListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.notifier == widget.notifier) return;
+    oldWidget.notifier.removeListener(_syncSearchController);
+    widget.notifier.addListener(_syncSearchController);
+    _syncSearchController();
+  }
+
+  @override
+  void dispose() {
+    widget.notifier.removeListener(_syncSearchController);
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -45,6 +66,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ),
           body: Column(
             children: [
+              _buildSearchBar(context, n),
               _buildFilterBar(context, n),
               Expanded(child: _buildBody(context, n)),
               if (n.totalPages > 1) _buildPagination(context, n),
@@ -55,12 +77,79 @@ class _TodoListScreenState extends State<TodoListScreen> {
     );
   }
 
+  Widget _buildSearchBar(BuildContext context, TodoNotifier n) {
+    final isBusy =
+        n.listStatus == ListStatus.initialLoading ||
+        n.listStatus == ListStatus.refreshing;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final field = TextField(
+            controller: _searchCtrl,
+            enabled: !isBusy,
+            maxLength: 110,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => _submitSearch(n),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchCtrl.text.isNotEmpty
+                  ? IconButton(
+                      tooltip: '검색어 지우기',
+                      onPressed: isBusy ? null : () => _clearSearch(n),
+                      icon: const Icon(Icons.close),
+                    )
+                  : null,
+              labelText: '제목 검색',
+              hintText: '검색어를 입력하세요',
+              errorText: n.searchError,
+              counterText: '',
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (_) => setState(() {}),
+          );
+
+          final button = FilledButton.icon(
+            onPressed: isBusy ? null : () => _submitSearch(n),
+            icon: const Icon(Icons.search),
+            label: const Text('검색'),
+          );
+
+          if (constraints.maxWidth < 420) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [field, const SizedBox(height: 8), button],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: field),
+              const SizedBox(width: 8),
+              SizedBox(height: 48, child: button),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildFilterBar(BuildContext context, TodoNotifier n) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Row(
         children: [
@@ -87,10 +176,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
           const Spacer(),
           if (n.total > 0)
             Text(
-              '총 ${n.total}개',
+              n.searchQuery.isEmpty ? '총 ${n.total}개' : '검색 결과 ${n.total}개',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
         ],
       ),
@@ -109,7 +198,11 @@ class _TodoListScreenState extends State<TodoListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(height: 12),
               Text(
                 n.listError ?? '오류가 발생했습니다.',
@@ -130,6 +223,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
     final todos = n.todos;
     if (todos.isEmpty) {
+      final hasSearch = n.searchQuery.isNotEmpty;
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -139,11 +233,24 @@ class _TodoListScreenState extends State<TodoListScreen> {
               const Icon(Icons.checklist, size: 56, color: Colors.grey),
               const SizedBox(height: 12),
               Text(
-                n.filter == 'all'
-                    ? '등록된 할 일이 없습니다.'
-                    : (n.filter == 'active' ? '미완료 할 일이 없습니다.' : '완료된 할 일이 없습니다.'),
+                hasSearch
+                    ? '"${n.searchQuery}" 검색 결과가 없습니다.'
+                    : (n.filter == 'all'
+                          ? '등록된 할 일이 없습니다.'
+                          : (n.filter == 'active'
+                                ? '미완료 할 일이 없습니다.'
+                                : '완료된 할 일이 없습니다.')),
+                textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.grey, fontSize: 16),
               ),
+              if (hasSearch) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => _clearSearch(n),
+                  icon: const Icon(Icons.close),
+                  label: const Text('검색 해제'),
+                ),
+              ],
               if (n.filter == 'all') ...[
                 const SizedBox(height: 16),
                 FilledButton.icon(
@@ -218,6 +325,30 @@ class _TodoListScreenState extends State<TodoListScreen> {
       builder: (_) => TodoFormDialog(notifier: widget.notifier),
     );
   }
+
+  Future<void> _submitSearch(TodoNotifier n) async {
+    final applied = await n.submitSearch(_searchCtrl.text);
+    if (!mounted || !applied) return;
+    _lastSyncedSearchQuery = n.searchQuery;
+    FocusScope.of(context).unfocus();
+  }
+
+  Future<void> _clearSearch(TodoNotifier n) async {
+    _searchCtrl.clear();
+    setState(() {});
+    await n.clearSearch();
+    _lastSyncedSearchQuery = n.searchQuery;
+  }
+
+  void _syncSearchController() {
+    final query = widget.notifier.searchQuery;
+    if (query == _lastSyncedSearchQuery) return;
+    _lastSyncedSearchQuery = query;
+    _searchCtrl.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
+    );
+  }
 }
 
 class _FilterButton extends StatelessWidget {
@@ -253,7 +384,9 @@ class _FilterButton extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+            color: selected
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurface,
             fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13,
           ),
@@ -278,16 +411,31 @@ class _SkeletonItem extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Container(width: 22, height: 22, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4))),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(height: 14, width: double.infinity, color: Colors.grey.shade300),
+                  Container(
+                    height: 14,
+                    width: double.infinity,
+                    color: Colors.grey.shade300,
+                  ),
                   const SizedBox(height: 8),
-                  Container(height: 12, width: 120, color: Colors.grey.shade200),
+                  Container(
+                    height: 12,
+                    width: 120,
+                    color: Colors.grey.shade200,
+                  ),
                 ],
               ),
             ),
