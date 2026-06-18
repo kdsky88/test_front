@@ -38,6 +38,7 @@ class TodoApi {
     required String title,
     required TodoPriority priority,
     String? description,
+    String? note,
     String? dueAt,
   }) async {
     final body = <String, dynamic>{
@@ -45,6 +46,7 @@ class TodoApi {
       'priority': priority.apiValue,
     };
     if (description != null) body['description'] = description;
+    if (note != null) body['note'] = note;
     if (dueAt != null) body['dueAt'] = dueAt;
 
     final response = await http.post(
@@ -63,10 +65,12 @@ class TodoApi {
     required String id,
     String? title,
     String? description,
+    String? note,
     String? dueAt,
     bool? completed,
     TodoPriority? priority,
     bool clearDescription = false,
+    bool clearNote = false,
     bool clearDueAt = false,
   }) async {
     final body = <String, dynamic>{};
@@ -75,6 +79,11 @@ class TodoApi {
       body['description'] = null;
     } else if (description != null) {
       body['description'] = description;
+    }
+    if (clearNote) {
+      body['note'] = null;
+    } else if (note != null) {
+      body['note'] = note;
     }
     if (clearDueAt) {
       body['dueAt'] = null;

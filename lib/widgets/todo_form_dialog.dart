@@ -8,7 +8,12 @@ class TodoFormDialog extends StatefulWidget {
   final TodoNotifier notifier;
   final DateTime? initialDueAt;
 
-  const TodoFormDialog({super.key, this.todo, required this.notifier, this.initialDueAt});
+  const TodoFormDialog({
+    super.key,
+    this.todo,
+    required this.notifier,
+    this.initialDueAt,
+  });
 
   @override
   State<TodoFormDialog> createState() => _TodoFormDialogState();
@@ -17,12 +22,14 @@ class TodoFormDialog extends StatefulWidget {
 class _TodoFormDialogState extends State<TodoFormDialog> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descCtrl;
+  late final TextEditingController _noteCtrl;
   DateTime? _dueAt;
   late TodoPriority _priority;
   bool _submitting = false;
   String? _generalError;
   String? _titleError;
   String? _descError;
+  String? _noteError;
   String? _dueAtError;
   String? _priorityError;
 
@@ -33,6 +40,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _descCtrl = TextEditingController(text: widget.todo?.description ?? '');
+    _noteCtrl = TextEditingController(text: widget.todo?.note ?? '');
     _dueAt = widget.todo?.dueAt ?? widget.initialDueAt;
     _priority = widget.todo?.priority ?? TodoPriority.medium;
   }
@@ -41,6 +49,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   void dispose() {
     _titleCtrl.dispose();
     _descCtrl.dispose();
+    _noteCtrl.dispose();
     super.dispose();
   }
 
@@ -60,15 +69,21 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
 
     String? descErr;
     if (_descCtrl.text.length > 1000) {
-      descErr = '설명은 1,000자 이하로 입력해주세요.';
+      descErr = '간단 설명은 1,000자 이하로 입력해주세요.';
+    }
+
+    String? noteErr;
+    if (_noteCtrl.text.length > 2000) {
+      noteErr = '메모는 2,000자 이하로 입력해주세요.';
     }
 
     setState(() {
       _titleError = titleErr;
       _descError = descErr;
+      _noteError = noteErr;
     });
 
-    return titleErr == null && descErr == null;
+    return titleErr == null && descErr == null && noteErr == null;
   }
 
   Future<void> _submit() async {
@@ -80,17 +95,20 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       _generalError = null;
       _titleError = null;
       _descError = null;
+      _noteError = null;
       _dueAtError = null;
       _priorityError = null;
     });
 
     final normalizedTitle = _normalizeTitle(_titleCtrl.text);
     final desc = _descCtrl.text.isNotEmpty ? _descCtrl.text : null;
+    final note = _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null;
     final dueAtStr = _dueAt?.toUtc().toIso8601String();
 
     String? errorMsg;
     String? titleErr;
     String? descErr;
+    String? noteErr;
     String? dueErr;
     String? priorityErr;
 
@@ -101,8 +119,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         title: normalizedTitle,
         priority: _priority,
         description: desc,
+        note: note,
         dueAt: dueAtStr,
         clearDescription: desc == null,
+        clearNote: note == null,
         clearDueAt: _dueAt == null,
       );
       if (msg != null) {
@@ -110,9 +130,14 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         if (apiEx != null) {
           titleErr = apiEx.error.fields?['title'];
           descErr = apiEx.error.fields?['description'];
+          noteErr = apiEx.error.fields?['note'];
           dueErr = apiEx.error.fields?['dueAt'];
           priorityErr = apiEx.error.fields?['priority'];
-          if (titleErr != null || descErr != null || dueErr != null || priorityErr != null) {
+          if (titleErr != null ||
+              descErr != null ||
+              noteErr != null ||
+              dueErr != null ||
+              priorityErr != null) {
             errorMsg = null;
           }
         }
@@ -122,6 +147,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         title: normalizedTitle,
         priority: _priority,
         description: desc,
+        note: note,
         dueAt: dueAtStr,
       );
     }
@@ -132,6 +158,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     if (errorMsg == null &&
         titleErr == null &&
         descErr == null &&
+        noteErr == null &&
         dueErr == null &&
         priorityErr == null) {
       Navigator.of(context).pop(true);
@@ -140,6 +167,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         _generalError = errorMsg;
         _titleError = titleErr;
         _descError = descErr;
+        _noteError = noteErr;
         _dueAtError = dueErr;
         _priorityError = priorityErr;
       });
@@ -158,12 +186,20 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
 
     final time = await showTimePicker(
       context: context,
-      initialTime: _dueAt != null ? TimeOfDay.fromDateTime(_dueAt!) : TimeOfDay.now(),
+      initialTime: _dueAt != null
+          ? TimeOfDay.fromDateTime(_dueAt!)
+          : TimeOfDay.now(),
     );
     if (!mounted || time == null) return;
 
     setState(() {
-      _dueAt = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+      _dueAt = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        time.hour,
+        time.minute,
+      );
       _dueAtError = null;
     });
   }
@@ -193,12 +229,26 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
             TextField(
               controller: _descCtrl,
               decoration: InputDecoration(
-                labelText: '설명',
+                labelText: '간단 설명',
                 errorText: _descError,
                 counterText: '${_descCtrl.text.length}/1000',
               ),
               maxLines: 3,
               maxLength: 1010,
+              enabled: !_submitting,
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _noteCtrl,
+              decoration: InputDecoration(
+                labelText: '메모(상세 설명)',
+                errorText: _noteError,
+                counterText: '${_noteCtrl.text.length}/2000',
+              ),
+              minLines: 3,
+              maxLines: 6,
+              maxLength: 2010,
               enabled: !_submitting,
               onChanged: (_) => setState(() {}),
             ),
@@ -229,7 +279,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   _priorityError!,
-                  style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+                  style: TextStyle(
+                    color: theme.colorScheme.error,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             const SizedBox(height: 8),
@@ -247,7 +300,9 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                   IconButton(
                     icon: const Icon(Icons.clear),
                     tooltip: '마감일 제거',
-                    onPressed: _submitting ? null : () => setState(() => _dueAt = null),
+                    onPressed: _submitting
+                        ? null
+                        : () => setState(() => _dueAt = null),
                   ),
                 TextButton(
                   onPressed: _submitting ? null : _pickDueAt,
@@ -260,7 +315,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   _dueAtError!,
-                  style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+                  style: TextStyle(
+                    color: theme.colorScheme.error,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             if (_generalError != null)
@@ -268,7 +326,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   _generalError!,
-                  style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
+                  style: TextStyle(
+                    color: theme.colorScheme.error,
+                    fontSize: 13,
+                  ),
                 ),
               ),
           ],
@@ -276,7 +337,9 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+          onPressed: _submitting
+              ? null
+              : () => Navigator.of(context).pop(false),
           child: const Text('취소'),
         ),
         FilledButton(
