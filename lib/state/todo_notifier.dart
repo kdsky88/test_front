@@ -9,6 +9,8 @@ enum ListStatus { idle, initialLoading, refreshing, error }
 class TodoNotifier extends ChangeNotifier {
   List<Todo> _todos = [];
   String _filter = 'all';
+  String _searchQuery = '';
+  String? _searchError;
   int _page = 1;
   int _totalPages = 0;
   int _total = 0;
@@ -26,6 +28,8 @@ class TodoNotifier extends ChangeNotifier {
 
   List<Todo> get todos => _todos;
   String get filter => _filter;
+  String get searchQuery => _searchQuery;
+  String? get searchError => _searchError;
   int get page => _page;
   int get totalPages => _totalPages;
   int get total => _total;
@@ -52,6 +56,7 @@ class TodoNotifier extends ChangeNotifier {
         status: _filter,
         page: _page,
         limit: kPageLimit,
+        search: _searchQuery.isEmpty ? null : _searchQuery,
       );
       if (seq != _listSeq) return; // stale response
       _todos = result.data;
@@ -65,6 +70,13 @@ class TodoNotifier extends ChangeNotifier {
         _filter = 'all';
         _page = 1;
         await loadTodos();
+        return;
+      }
+      final searchError = e.error.fields?['search'];
+      if (searchError != null) {
+        _searchError = searchError;
+        _listStatus = ListStatus.idle;
+        notifyListeners();
         return;
       }
       _listStatus = ListStatus.error;
@@ -84,6 +96,24 @@ class TodoNotifier extends ChangeNotifier {
     _page = 1;
     await loadTodos();
   }
+
+  Future<bool> submitSearch(String keyword) async {
+    final trimmed = keyword.trim();
+    if (trimmed.length > 100) {
+      _searchError = '검색어는 100자 이하로 입력해주세요.';
+      notifyListeners();
+      return false;
+    }
+
+    if (_searchQuery == trimmed && _searchError == null) return true;
+    _searchQuery = trimmed;
+    _searchError = null;
+    _page = 1;
+    await loadTodos();
+    return true;
+  }
+
+  Future<void> clearSearch() => submitSearch('');
 
   Future<void> goToPage(int page) async {
     if (page < 1 || page > _totalPages) return;
@@ -107,6 +137,8 @@ class TodoNotifier extends ChangeNotifier {
       );
       // On success: always go to all/page 1
       _filter = 'all';
+      _searchQuery = '';
+      _searchError = null;
       _page = 1;
       await loadTodos();
       return null;
@@ -165,7 +197,8 @@ class TodoNotifier extends ChangeNotifier {
       _processingIds.remove(id);
 
       // Remove from list if filter excludes the new state
-      final shouldKeep = _filter == 'all' ||
+      final shouldKeep =
+          _filter == 'all' ||
           (_filter == 'active' && !updated.completed) ||
           (_filter == 'completed' && updated.completed);
 

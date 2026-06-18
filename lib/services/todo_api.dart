@@ -14,17 +14,22 @@ class TodoApi {
     required String status,
     required int page,
     int limit = 20,
+    String? search,
   }) async {
-    final uri = Uri.parse('$baseUrl/todos').replace(
-      queryParameters: {
-        'status': status,
-        'page': '$page',
-        'limit': '$limit',
-      },
-    );
+    final queryParameters = {
+      'status': status,
+      'page': '$page',
+      'limit': '$limit',
+      if (search != null && search.isNotEmpty) 'search': search,
+    };
+    final uri = Uri.parse(
+      '$baseUrl/todos',
+    ).replace(queryParameters: queryParameters);
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
-      return TodoListResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      return TodoListResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
     }
     throw _parseError(response);
   }
@@ -89,17 +94,21 @@ class TodoApi {
     required int year,
     required int month,
   }) async {
-    final uri = Uri.parse('$baseUrl/todos/calendar').replace(
-      queryParameters: {'year': '$year', 'month': '$month'},
-    );
+    final uri = Uri.parse(
+      '$baseUrl/todos/calendar',
+    ).replace(queryParameters: {'year': '$year', 'month': '$month'});
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final data = json['data'] as Map<String, dynamic>;
-      return data.map((date, todos) => MapEntry(
-        date,
-        (todos as List).map((t) => Todo.fromJson(t as Map<String, dynamic>)).toList(),
-      ));
+      return data.map(
+        (date, todos) => MapEntry(
+          date,
+          (todos as List)
+              .map((t) => Todo.fromJson(t as Map<String, dynamic>))
+              .toList(),
+        ),
+      );
     }
     throw _parseError(response);
   }
@@ -128,10 +137,7 @@ class TodoApi {
     } catch (_) {
       return ApiException(
         statusCode: response.statusCode,
-        error: ApiError(
-          code: 'INTERNAL_ERROR',
-          message: '서버 응답을 처리할 수 없습니다.',
-        ),
+        error: ApiError(code: 'INTERNAL_ERROR', message: '서버 응답을 처리할 수 없습니다.'),
       );
     }
   }
