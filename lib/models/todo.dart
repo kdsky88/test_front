@@ -20,6 +20,7 @@ class Todo {
   final String id;
   final String title;
   final String? description;
+  final String? note;
   final bool completed;
   final TodoPriority priority;
   final DateTime? dueAt;
@@ -31,6 +32,7 @@ class Todo {
     required this.id,
     required this.title,
     this.description,
+    this.note,
     required this.completed,
     required this.priority,
     this.dueAt,
@@ -44,6 +46,7 @@ class Todo {
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
+      note: json['note'] as String?,
       completed: json['completed'] as bool,
       priority: TodoPriority.fromJson(json['priority']),
       dueAt: _parseDate(json['dueAt']),
@@ -70,6 +73,7 @@ class Todo {
   Todo copyWith({
     String? title,
     String? description,
+    String? note,
     bool? completed,
     TodoPriority? priority,
     DateTime? dueAt,
@@ -82,6 +86,7 @@ class Todo {
       id: id,
       title: title ?? this.title,
       description: description ?? this.description,
+      note: note ?? this.note,
       completed: completed ?? this.completed,
       priority: priority ?? this.priority,
       dueAt: clearDueAt ? null : (dueAt ?? this.dueAt),
@@ -110,7 +115,9 @@ class TodoListResponse {
   factory TodoListResponse.fromJson(Map<String, dynamic> json) {
     final meta = json['meta'] as Map<String, dynamic>;
     return TodoListResponse(
-      data: (json['data'] as List).map((e) => Todo.fromJson(e as Map<String, dynamic>)).toList(),
+      data: (json['data'] as List)
+          .map((e) => Todo.fromJson(e as Map<String, dynamic>))
+          .toList(),
       page: meta['page'] as int,
       limit: meta['limit'] as int,
       total: meta['total'] as int,
@@ -124,11 +131,7 @@ class ApiError {
   final String message;
   final Map<String, String>? fields;
 
-  const ApiError({
-    required this.code,
-    required this.message,
-    this.fields,
-  });
+  const ApiError({required this.code, required this.message, this.fields});
 
   factory ApiError.fromJson(Map<String, dynamic> json) {
     final error = json['error'] as Map<String, dynamic>;

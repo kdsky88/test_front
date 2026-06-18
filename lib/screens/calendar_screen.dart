@@ -37,10 +37,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       builder: (context, _) {
         final n = widget.calendarNotifier;
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('달력'),
-            centerTitle: false,
-          ),
+          appBar: AppBar(title: const Text('달력'), centerTitle: false),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openCreate(context),
             icon: const Icon(Icons.add),
@@ -82,7 +79,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: Text(
               '${n.year}년 ${n.month}월',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           IconButton(
@@ -102,15 +101,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error, size: 20),
+          Icon(
+            Icons.error_outline,
+            color: Theme.of(context).colorScheme.error,
+            size: 20,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               n.error ?? '오류가 발생했습니다.',
-              style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 13,
+              ),
             ),
           ),
-          TextButton(onPressed: () => n.loadCalendar(), child: const Text('다시 시도')),
+          TextButton(
+            onPressed: () => n.loadCalendar(),
+            child: const Text('다시 시도'),
+          ),
         ],
       ),
     );
@@ -125,7 +134,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ...List.filled(offset, 0),
       ...List.generate(daysInMonth, (i) => i + 1),
     ];
-    while (cells.length % 7 != 0) { cells.add(0); }
+    while (cells.length % 7 != 0) {
+      cells.add(0);
+    }
 
     const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -135,14 +146,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
         children: [
           Row(
             children: weekdays
-                .map((d) => Expanded(
-                      child: Center(
-                        child: Text(
-                          d,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+                .map(
+                  (d) => Expanded(
+                    child: Center(
+                      child: Text(
+                        d,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
                         ),
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
           const SizedBox(height: 4),
@@ -150,7 +167,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Row(
               children: [
                 for (int col = 0; col < 7; col++)
-                  Expanded(child: _buildDayCell(context, n, cells[row * 7 + col])),
+                  Expanded(
+                    child: _buildDayCell(context, n, cells[row * 7 + col]),
+                  ),
               ],
             ),
           const SizedBox(height: 4),
@@ -163,11 +182,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (day == 0) return const SizedBox(height: 48);
 
     final date = DateTime(n.year, n.month, day);
-    final isSelected = n.selectedDate.year == n.year &&
+    final isSelected =
+        n.selectedDate.year == n.year &&
         n.selectedDate.month == n.month &&
         n.selectedDate.day == day;
     final now = DateTime.now();
-    final isToday = now.year == n.year && now.month == n.month && now.day == day;
+    final isToday =
+        now.year == n.year && now.month == n.month && now.day == day;
     final hasTodos = n.hasTodos(date);
     final theme = Theme.of(context);
 
@@ -207,7 +228,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       width: 4,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.white70 : theme.colorScheme.primary,
+                        color: isSelected
+                            ? Colors.white70
+                            : theme.colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
                     )
@@ -228,11 +251,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          Text(label, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(width: 6),
           Text(
             '${(widget.calendarNotifier.selectedDateTodos.length)}개',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.grey),
           ),
         ],
       ),
@@ -250,7 +280,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
           children: [
             const Icon(Icons.event_available, size: 48, color: Colors.grey),
             const SizedBox(height: 12),
-            const Text('등록된 할 일이 없습니다.', style: TextStyle(color: Colors.grey, fontSize: 15)),
+            const Text(
+              '등록된 할 일이 없습니다.',
+              style: TextStyle(color: Colors.grey, fontSize: 15),
+            ),
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: () => _openCreate(context),
@@ -281,7 +314,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       color: todo.completed
           ? theme.colorScheme.surfaceContainerLow
-          : (overdue ? theme.colorScheme.errorContainer.withValues(alpha: 0.15) : theme.colorScheme.surface),
+          : (overdue
+                ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
+                : theme.colorScheme.surface),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
@@ -301,7 +336,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       : Checkbox(
                           value: todo.completed,
                           onChanged: (_) => n.toggleComplete(todo.id),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                 ),
                 const SizedBox(width: 10),
@@ -317,9 +353,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             child: Text(
                               todo.title,
                               style: theme.textTheme.bodyLarge?.copyWith(
-                                decoration: todo.completed ? TextDecoration.lineThrough : null,
+                                decoration: todo.completed
+                                    ? TextDecoration.lineThrough
+                                    : null,
                                 color: todo.completed
-                                    ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
+                                    ? theme.colorScheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      )
                                     : null,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -328,7 +368,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           if (todo.completed)
                             Container(
                               margin: const EdgeInsets.only(left: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade100,
                                 borderRadius: BorderRadius.circular(4),
@@ -344,15 +387,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             ),
                         ],
                       ),
-                      if (todo.description != null && todo.description!.isNotEmpty) ...[
+                      if (todo.description != null &&
+                          todo.description!.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
                           todo.description!,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      if (todo.note != null && todo.note!.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            todo.note!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                       if (todo.dueAt != null) ...[
@@ -364,7 +433,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               size: 14,
                               color: overdue
                                   ? theme.colorScheme.error
-                                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.5,
+                                    ),
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -373,7 +444,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 fontSize: 12,
                                 color: overdue
                                     ? theme.colorScheme.error
-                                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                    : theme.colorScheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      ),
                                 fontWeight: overdue ? FontWeight.w600 : null,
                               ),
                             ),
@@ -400,12 +473,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, size: 18),
                       tooltip: '수정',
-                      onPressed: isProcessing ? null : () => _openEdit(context, todo),
+                      onPressed: isProcessing
+                          ? null
+                          : () => _openEdit(context, todo),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, size: 18),
                       tooltip: '삭제',
-                      onPressed: isProcessing ? null : () => _confirmDelete(context, todo),
+                      onPressed: isProcessing
+                          ? null
+                          : () => _confirmDelete(context, todo),
                     ),
                   ],
                 ),
@@ -419,7 +496,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     Expanded(
                       child: Text(
                         itemError,
-                        style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+                        style: TextStyle(
+                          color: theme.colorScheme.error,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     TextButton(
@@ -458,10 +538,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => TodoFormDialog(
-        todo: todo,
-        notifier: widget.todoNotifier,
-      ),
+      builder: (_) => TodoFormDialog(todo: todo, notifier: widget.todoNotifier),
     );
     if (result == true && mounted) {
       widget.calendarNotifier.loadCalendar();

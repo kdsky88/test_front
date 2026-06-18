@@ -136,6 +136,7 @@ class TodoNotifier extends ChangeNotifier {
     required String title,
     required TodoPriority priority,
     String? description,
+    String? note,
     String? dueAt,
   }) async {
     try {
@@ -143,6 +144,7 @@ class TodoNotifier extends ChangeNotifier {
         title: title,
         priority: priority,
         description: description?.isNotEmpty == true ? description : null,
+        note: note?.isNotEmpty == true ? note : null,
         dueAt: dueAt,
       );
       // On success: always go to all/page 1
@@ -165,8 +167,10 @@ class TodoNotifier extends ChangeNotifier {
     required String title,
     required TodoPriority priority,
     String? description,
+    String? note,
     String? dueAt,
     bool clearDescription = false,
+    bool clearNote = false,
     bool clearDueAt = false,
   }) async {
     try {
@@ -175,8 +179,10 @@ class TodoNotifier extends ChangeNotifier {
         title: title,
         priority: priority,
         description: description,
+        note: note,
         dueAt: dueAt,
         clearDescription: clearDescription,
+        clearNote: clearNote,
         clearDueAt: clearDueAt,
       );
       await loadTodos();

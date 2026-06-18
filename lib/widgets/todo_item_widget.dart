@@ -28,8 +28,8 @@ class TodoItemWidget extends StatelessWidget {
         color: todo.completed
             ? theme.colorScheme.surfaceContainerLow
             : (overdue
-                ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
-                : theme.colorScheme.surface),
+                  ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
+                  : theme.colorScheme.surface),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
@@ -49,7 +49,8 @@ class TodoItemWidget extends StatelessWidget {
                         : Checkbox(
                             value: todo.completed,
                             onChanged: (_) => notifier.toggleComplete(todo.id),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                           ),
                   ),
                   const SizedBox(width: 10),
@@ -65,9 +66,13 @@ class TodoItemWidget extends StatelessWidget {
                               child: Text(
                                 todo.title,
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  decoration: todo.completed ? TextDecoration.lineThrough : null,
+                                  decoration: todo.completed
+                                      ? TextDecoration.lineThrough
+                                      : null,
                                   color: todo.completed
-                                      ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
+                                      ? theme.colorScheme.onSurface.withValues(
+                                          alpha: 0.5,
+                                        )
                                       : null,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -76,7 +81,10 @@ class TodoItemWidget extends StatelessWidget {
                             if (todo.completed)
                               Container(
                                 margin: const EdgeInsets.only(left: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.green.shade100,
                                   borderRadius: BorderRadius.circular(4),
@@ -92,15 +100,41 @@ class TodoItemWidget extends StatelessWidget {
                               ),
                           ],
                         ),
-                        if (todo.description != null && todo.description!.isNotEmpty) ...[
+                        if (todo.description != null &&
+                            todo.description!.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
                             todo.description!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        if (todo.note != null && todo.note!.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              todo.note!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                         if (todo.dueAt != null) ...[
@@ -112,16 +146,22 @@ class TodoItemWidget extends StatelessWidget {
                                 size: 14,
                                 color: overdue
                                     ? theme.colorScheme.error
-                                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                    : theme.colorScheme.onSurface.withValues(
+                                        alpha: 0.5,
+                                      ),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                DateFormat('yyyy-MM-dd HH:mm').format(todo.dueAt!.toLocal()),
+                                DateFormat(
+                                  'yyyy-MM-dd HH:mm',
+                                ).format(todo.dueAt!.toLocal()),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: overdue
                                       ? theme.colorScheme.error
-                                      : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                      : theme.colorScheme.onSurface.withValues(
+                                          alpha: 0.5,
+                                        ),
                                   fontWeight: overdue ? FontWeight.w600 : null,
                                 ),
                               ),
@@ -148,12 +188,16 @@ class TodoItemWidget extends StatelessWidget {
                       IconButton(
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         tooltip: '수정',
-                        onPressed: isProcessing ? null : () => _openEdit(context),
+                        onPressed: isProcessing
+                            ? null
+                            : () => _openEdit(context),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, size: 18),
                         tooltip: '삭제',
-                        onPressed: isProcessing ? null : () => _confirmDelete(context),
+                        onPressed: isProcessing
+                            ? null
+                            : () => _confirmDelete(context),
                       ),
                     ],
                   ),
@@ -167,7 +211,10 @@ class TodoItemWidget extends StatelessWidget {
                       Expanded(
                         child: Text(
                           itemError,
-                          style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       TextButton(
