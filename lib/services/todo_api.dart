@@ -15,12 +15,14 @@ class TodoApi {
     required int page,
     int limit = 20,
     String? search,
+    String? assignee,
   }) async {
     final queryParameters = {
       'status': status,
       'page': '$page',
       'limit': '$limit',
       if (search != null && search.isNotEmpty) 'search': search,
+      if (assignee != null && assignee.isNotEmpty) 'assignee': assignee,
     };
     final uri = Uri.parse(
       '$baseUrl/todos',
@@ -34,12 +36,23 @@ class TodoApi {
     throw _parseError(response);
   }
 
+  static Future<List<String>> getAssignees() async {
+    final uri = Uri.parse('$baseUrl/todos/assignees');
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return (json['data'] as List).cast<String>();
+    }
+    throw _parseError(response);
+  }
+
   static Future<Todo> createTodo({
     required String title,
     required TodoPriority priority,
     String? description,
     String? note,
     String? dueAt,
+    String? assignee,
   }) async {
     final body = <String, dynamic>{
       'title': title,
@@ -48,6 +61,7 @@ class TodoApi {
     if (description != null) body['description'] = description;
     if (note != null) body['note'] = note;
     if (dueAt != null) body['dueAt'] = dueAt;
+    if (assignee != null) body['assignee'] = assignee;
 
     final response = await http.post(
       Uri.parse('$baseUrl/todos'),
@@ -67,11 +81,13 @@ class TodoApi {
     String? description,
     String? note,
     String? dueAt,
+    String? assignee,
     bool? completed,
     TodoPriority? priority,
     bool clearDescription = false,
     bool clearNote = false,
     bool clearDueAt = false,
+    bool clearAssignee = false,
   }) async {
     final body = <String, dynamic>{};
     if (title != null) body['title'] = title;
@@ -89,6 +105,11 @@ class TodoApi {
       body['dueAt'] = null;
     } else if (dueAt != null) {
       body['dueAt'] = dueAt;
+    }
+    if (clearAssignee) {
+      body['assignee'] = null;
+    } else if (assignee != null) {
+      body['assignee'] = assignee;
     }
     if (completed != null) body['completed'] = completed;
     if (priority != null) body['priority'] = priority.apiValue;

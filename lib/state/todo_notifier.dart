@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../models/todo.dart';
 import '../services/todo_api.dart';
@@ -11,6 +13,9 @@ class TodoNotifier extends ChangeNotifier {
   String _filter = 'all';
   String _searchQuery = '';
   String? _searchError;
+  String _assigneeFilter = '전체';
+  List<String> _assignees = [];
+  bool _assigneesLoading = false;
   int _page = 1;
   int _totalPages = 0;
   int _total = 0;
@@ -30,6 +35,9 @@ class TodoNotifier extends ChangeNotifier {
   String get filter => _filter;
   String get searchQuery => _searchQuery;
   String? get searchError => _searchError;
+  String get assigneeFilter => _assigneeFilter;
+  List<String> get assignees => _assignees;
+  bool get assigneesLoading => _assigneesLoading;
   int get page => _page;
   int get totalPages => _totalPages;
   int get total => _total;
@@ -52,11 +60,15 @@ class TodoNotifier extends ChangeNotifier {
 
     final seq = ++_listSeq;
     try {
+      final assigneeParam = _assigneeFilter == '전체'
+          ? null
+          : (_assigneeFilter == '미지정' ? '@unassigned' : _assigneeFilter);
       final result = await TodoApi.getTodos(
         status: _filter,
         page: _page,
         limit: kPageLimit,
         search: _searchQuery.isEmpty ? null : _searchQuery,
+        assignee: assigneeParam,
       );
       if (seq != _listSeq) return; // stale response
 
@@ -105,6 +117,33 @@ class TodoNotifier extends ChangeNotifier {
     await loadTodos();
   }
 
+  Future<void> setAssigneeFilter(String assignee) async {
+    if (_assigneeFilter == assignee) return;
+    _assigneeFilter = assignee;
+    _page = 1;
+    await loadTodos();
+  }
+
+  Future<void> loadAssignees() async {
+    _assigneesLoading = true;
+    notifyListeners();
+    try {
+      final result = await TodoApi.getAssignees();
+      _assignees = result;
+      // AC-F11: 선택값이 후보에서 사라지면 '전체'로 리셋
+      if (_assigneeFilter != '전체' &&
+          _assigneeFilter != '미지정' &&
+          !_assignees.contains(_assigneeFilter)) {
+        _assigneeFilter = '전체';
+      }
+    } catch (_) {
+      // 후보 로딩 실패해도 목록은 정상 진행
+    } finally {
+      _assigneesLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> submitSearch(String keyword) async {
     final trimmed = keyword.trim();
     if (trimmed.length > 100) {
@@ -138,6 +177,7 @@ class TodoNotifier extends ChangeNotifier {
     String? description,
     String? note,
     String? dueAt,
+    String? assignee,
   }) async {
     try {
       await TodoApi.createTodo(
@@ -146,13 +186,16 @@ class TodoNotifier extends ChangeNotifier {
         description: description?.isNotEmpty == true ? description : null,
         note: note?.isNotEmpty == true ? note : null,
         dueAt: dueAt,
+        assignee: assignee?.isNotEmpty == true ? assignee : null,
       );
-      // On success: always go to all/page 1
+      // On success: always go to all/page 1, reset assignee filter
       _filter = 'all';
       _searchQuery = '';
       _searchError = null;
+      _assigneeFilter = '전체';
       _page = 1;
       await loadTodos();
+      unawaited(loadAssignees());
       return null;
     } on ApiException catch (e) {
       return e.error.message;
@@ -169,9 +212,11 @@ class TodoNotifier extends ChangeNotifier {
     String? description,
     String? note,
     String? dueAt,
+    String? assignee,
     bool clearDescription = false,
     bool clearNote = false,
     bool clearDueAt = false,
+    bool clearAssignee = false,
   }) async {
     try {
       final updated = await TodoApi.updateTodo(
@@ -181,11 +226,14 @@ class TodoNotifier extends ChangeNotifier {
         description: description,
         note: note,
         dueAt: dueAt,
+        assignee: assignee,
         clearDescription: clearDescription,
         clearNote: clearNote,
         clearDueAt: clearDueAt,
+        clearAssignee: clearAssignee,
       );
       await loadTodos();
+      unawaited(loadAssignees());
       return (updated, null, null);
     } on ApiException catch (e) {
       if (e.error.code == 'TODO_NOT_FOUND') {

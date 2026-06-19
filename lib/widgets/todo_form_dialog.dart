@@ -23,6 +23,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _noteCtrl;
+  late final TextEditingController _assigneeCtrl;
   DateTime? _dueAt;
   late TodoPriority _priority;
   bool _submitting = false;
@@ -32,6 +33,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   String? _noteError;
   String? _dueAtError;
   String? _priorityError;
+  String? _assigneeError;
 
   bool get _isEdit => widget.todo != null;
 
@@ -41,6 +43,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _descCtrl = TextEditingController(text: widget.todo?.description ?? '');
     _noteCtrl = TextEditingController(text: widget.todo?.note ?? '');
+    _assigneeCtrl = TextEditingController(text: widget.todo?.assignee ?? '');
     _dueAt = widget.todo?.dueAt ?? widget.initialDueAt;
     _priority = widget.todo?.priority ?? TodoPriority.medium;
   }
@@ -50,6 +53,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _noteCtrl.dispose();
+    _assigneeCtrl.dispose();
     super.dispose();
   }
 
@@ -98,11 +102,15 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       _noteError = null;
       _dueAtError = null;
       _priorityError = null;
+      _assigneeError = null;
     });
 
     final normalizedTitle = _normalizeTitle(_titleCtrl.text);
     final desc = _descCtrl.text.isNotEmpty ? _descCtrl.text : null;
     final note = _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null;
+    final assignee = _assigneeCtrl.text.trim().isNotEmpty
+        ? _assigneeCtrl.text.trim()
+        : null;
     final dueAtStr = _dueAt?.toUtc().toIso8601String();
 
     String? errorMsg;
@@ -111,6 +119,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     String? noteErr;
     String? dueErr;
     String? priorityErr;
+    String? assigneeErr;
 
     if (_isEdit) {
       final todo = widget.todo!;
@@ -121,9 +130,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         description: desc,
         note: note,
         dueAt: dueAtStr,
+        assignee: assignee,
         clearDescription: desc == null,
         clearNote: note == null,
         clearDueAt: _dueAt == null,
+        clearAssignee: assignee == null,
       );
       if (msg != null) {
         errorMsg = msg;
@@ -133,11 +144,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
           noteErr = apiEx.error.fields?['note'];
           dueErr = apiEx.error.fields?['dueAt'];
           priorityErr = apiEx.error.fields?['priority'];
+          assigneeErr = apiEx.error.fields?['assignee'];
           if (titleErr != null ||
               descErr != null ||
               noteErr != null ||
               dueErr != null ||
-              priorityErr != null) {
+              priorityErr != null ||
+              assigneeErr != null) {
             errorMsg = null;
           }
         }
@@ -149,6 +162,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         description: desc,
         note: note,
         dueAt: dueAtStr,
+        assignee: assignee,
       );
     }
 
@@ -160,7 +174,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         descErr == null &&
         noteErr == null &&
         dueErr == null &&
-        priorityErr == null) {
+        priorityErr == null &&
+        assigneeErr == null) {
       Navigator.of(context).pop(true);
     } else {
       setState(() {
@@ -170,6 +185,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         _noteError = noteErr;
         _dueAtError = dueErr;
         _priorityError = priorityErr;
+        _assigneeError = assigneeErr;
       });
     }
   }
@@ -285,6 +301,22 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                   ),
                 ),
               ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _assigneeCtrl,
+              decoration: InputDecoration(
+                labelText: '담당자',
+                hintText: '담당자 이름 (선택)',
+                errorText: _assigneeError,
+                counterText: '${_assigneeCtrl.text.length}/50',
+                prefixIcon: const Icon(Icons.person_outline, size: 20),
+              ),
+              maxLength: 60,
+              enabled: !_submitting,
+              onChanged: (_) => setState(() {
+                _assigneeError = null;
+              }),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [

@@ -23,6 +23,7 @@ class Todo {
   final String? note;
   final bool completed;
   final TodoPriority priority;
+  final String? assignee;
   final DateTime? dueAt;
   final DateTime? completedAt;
   final DateTime createdAt;
@@ -35,6 +36,7 @@ class Todo {
     this.note,
     required this.completed,
     required this.priority,
+    this.assignee,
     this.dueAt,
     this.completedAt,
     required this.createdAt,
@@ -49,6 +51,7 @@ class Todo {
       note: json['note'] as String?,
       completed: json['completed'] as bool,
       priority: TodoPriority.fromJson(json['priority']),
+      assignee: json['assignee'] as String?,
       dueAt: _parseDate(json['dueAt']),
       completedAt: _parseDate(json['completedAt']),
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -81,8 +84,10 @@ class Todo {
     String? note,
     bool? completed,
     TodoPriority? priority,
+    String? assignee,
     DateTime? dueAt,
     DateTime? completedAt,
+    bool clearAssignee = false,
     bool clearDueAt = false,
     bool clearCompletedAt = false,
     DateTime? updatedAt,
@@ -94,6 +99,7 @@ class Todo {
       note: note ?? this.note,
       completed: completed ?? this.completed,
       priority: priority ?? this.priority,
+      assignee: clearAssignee ? null : (assignee ?? this.assignee),
       dueAt: clearDueAt ? null : (dueAt ?? this.dueAt),
       completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       createdAt: createdAt,

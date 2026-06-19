@@ -140,6 +140,31 @@ class TodoItemWidget extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (todo.assignee != null &&
+                            todo.assignee!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.person_outline,
+                                size: 14,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                todo.assignee!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (todo.dueAt != null) ...[
                           const SizedBox(height: 4),
                           Row(

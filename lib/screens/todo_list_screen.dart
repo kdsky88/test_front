@@ -23,6 +23,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
     widget.notifier.addListener(_syncSearchController);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.notifier.loadTodos(initial: true);
+      widget.notifier.loadAssignees();
     });
   }
 
@@ -68,6 +69,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             children: [
               _buildSearchBar(context, n),
               _buildFilterBar(context, n),
+              _buildAssigneeFilterBar(context, n),
               Expanded(child: _buildBody(context, n)),
               if (n.totalPages > 1) _buildPagination(context, n),
             ],
@@ -186,6 +188,69 @@ class _TodoListScreenState extends State<TodoListScreen> {
     );
   }
 
+  Widget _buildAssigneeFilterBar(BuildContext context, TodoNotifier n) {
+    final isBusy =
+        n.listStatus == ListStatus.initialLoading ||
+        n.listStatus == ListStatus.refreshing;
+    final theme = Theme.of(context);
+
+    // Build dropdown items: 전체, 미지정, (담당자...)
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem(value: '전체', child: Text('전체')),
+      const DropdownMenuItem(value: '미지정', child: Text('미지정')),
+      ...n.assignees.map(
+        (a) => DropdownMenuItem(value: a, child: Text(a)),
+      ),
+    ];
+
+    // AC-F11: value must be in items
+    final validValues = {'전체', '미지정', ...n.assignees};
+    final currentValue = validValues.contains(n.assigneeFilter)
+        ? n.assigneeFilter
+        : '전체';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.person_outline,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text('담당자', style: theme.textTheme.bodySmall),
+          const SizedBox(width: 8),
+          DropdownButton<String>(
+            value: currentValue,
+            isDense: true,
+            underline: const SizedBox.shrink(),
+            onChanged: isBusy
+                ? null
+                : (v) {
+                    if (v != null) n.setAssigneeFilter(v);
+                  },
+            items: items,
+          ),
+          if (n.assigneesLoading) ...[
+            const SizedBox(width: 8),
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildBody(BuildContext context, TodoNotifier n) {
     if (n.listStatus == ListStatus.initialLoading) {
       return _buildSkeleton();
@@ -224,6 +289,19 @@ class _TodoListScreenState extends State<TodoListScreen> {
     final todos = n.todos;
     if (todos.isEmpty) {
       final hasSearch = n.searchQuery.isNotEmpty;
+      final hasAssigneeFilter = n.assigneeFilter != '전체';
+      String emptyMessage;
+      if (hasSearch) {
+        emptyMessage = '"${n.searchQuery}" 검색 결과가 없습니다.';
+      } else if (hasAssigneeFilter) {
+        emptyMessage = n.assigneeFilter == '미지정'
+            ? '미지정 할 일이 없습니다.'
+            : "'${n.assigneeFilter}' 담당 할 일이 없습니다.";
+      } else {
+        emptyMessage = n.filter == 'all'
+            ? '등록된 할 일이 없습니다.'
+            : (n.filter == 'active' ? '미완료 할 일이 없습니다.' : '완료된 할 일이 없습니다.');
+      }
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -233,13 +311,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
               const Icon(Icons.checklist, size: 56, color: Colors.grey),
               const SizedBox(height: 12),
               Text(
-                hasSearch
-                    ? '"${n.searchQuery}" 검색 결과가 없습니다.'
-                    : (n.filter == 'all'
-                          ? '등록된 할 일이 없습니다.'
-                          : (n.filter == 'active'
-                                ? '미완료 할 일이 없습니다.'
-                                : '완료된 할 일이 없습니다.')),
+                emptyMessage,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.grey, fontSize: 16),
               ),
@@ -251,7 +323,15 @@ class _TodoListScreenState extends State<TodoListScreen> {
                   label: const Text('검색 해제'),
                 ),
               ],
-              if (n.filter == 'all') ...[
+              if (hasAssigneeFilter) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => n.setAssigneeFilter('전체'),
+                  icon: const Icon(Icons.person_off_outlined),
+                  label: const Text('필터 해제'),
+                ),
+              ],
+              if (!hasSearch && !hasAssigneeFilter && n.filter == 'all') ...[
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: () => _openCreate(context),
