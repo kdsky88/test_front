@@ -18,6 +18,7 @@ class TodoItemWidget extends StatelessWidget {
     final isProcessing = notifier.isProcessing(todo.id);
     final itemError = notifier.itemError(todo.id);
     final overdue = todo.isOverdue;
+    final dueSoon = todo.isDueSoon;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -29,7 +30,9 @@ class TodoItemWidget extends StatelessWidget {
             ? theme.colorScheme.surfaceContainerLow
             : (overdue
                   ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
-                  : theme.colorScheme.surface),
+                  : (dueSoon
+                        ? Colors.orange.withValues(alpha: 0.08)
+                        : theme.colorScheme.surface)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
@@ -142,13 +145,18 @@ class TodoItemWidget extends StatelessWidget {
                           Row(
                             children: [
                               Icon(
-                                overdue ? Icons.alarm_off : Icons.schedule,
+                                overdue
+                                    ? Icons.alarm_off
+                                    : (dueSoon
+                                          ? Icons.alarm
+                                          : Icons.schedule),
                                 size: 14,
                                 color: overdue
                                     ? theme.colorScheme.error
-                                    : theme.colorScheme.onSurface.withValues(
-                                        alpha: 0.5,
-                                      ),
+                                    : (dueSoon
+                                          ? Colors.orange.shade700
+                                          : theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5)),
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -159,10 +167,13 @@ class TodoItemWidget extends StatelessWidget {
                                   fontSize: 12,
                                   color: overdue
                                       ? theme.colorScheme.error
-                                      : theme.colorScheme.onSurface.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                  fontWeight: overdue ? FontWeight.w600 : null,
+                                      : (dueSoon
+                                            ? Colors.orange.shade700
+                                            : theme.colorScheme.onSurface
+                                                  .withValues(alpha: 0.5)),
+                                  fontWeight: (overdue || dueSoon)
+                                      ? FontWeight.w600
+                                      : null,
                                 ),
                               ),
                               if (overdue) ...[
@@ -172,6 +183,16 @@ class TodoItemWidget extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: theme.colorScheme.error,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ] else if (dueSoon) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '임박',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.orange.shade700,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

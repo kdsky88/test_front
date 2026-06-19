@@ -70,6 +70,11 @@ class Todo {
     return dueAt!.isBefore(DateTime.now());
   }
 
+  bool get isDueSoon {
+    if (completed || dueAt == null || isOverdue) return false;
+    return dueAt!.difference(DateTime.now()).inHours <= 24;
+  }
+
   Todo copyWith({
     String? title,
     String? description,
