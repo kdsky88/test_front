@@ -16,12 +16,14 @@ class TodoApi {
     required int page,
     int limit = 20,
     String? search,
+    String? tag,
   }) async {
     final queryParameters = {
       'status': status,
       'page': '$page',
       'limit': '$limit',
       if (search != null && search.isNotEmpty) 'search': search,
+      if (tag != null && tag.isNotEmpty) 'tag': tag,
     };
     final uri = Uri.parse(
       '$baseUrl/todos',
@@ -125,6 +127,37 @@ class TodoApi {
               .toList(),
         ),
       );
+    }
+    throw _parseError(response);
+  }
+
+  static Future<Todo> addTag({
+    required String id,
+    required String tag,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/todos/$id/tags'),
+      headers: _headers,
+      body: jsonEncode({'tag': tag}),
+    );
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return Todo.fromJson(json['data'] as Map<String, dynamic>);
+    }
+    throw _parseError(response);
+  }
+
+  static Future<Todo> removeTag({
+    required String id,
+    required String tag,
+  }) async {
+    final uri = Uri.parse(
+      '$baseUrl/todos/$id/tags',
+    ).replace(queryParameters: {'tag': tag});
+    final response = await http.delete(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return Todo.fromJson(json['data'] as Map<String, dynamic>);
     }
     throw _parseError(response);
   }
