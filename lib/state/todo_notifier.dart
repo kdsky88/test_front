@@ -12,6 +12,8 @@ class TodoNotifier extends ChangeNotifier {
   String _searchQuery = '';
   String? _searchError;
   String? _tagFilter;
+  String? _assigneeFilter;
+  List<String> _assignees = [];
   int _page = 1;
   int _totalPages = 0;
   int _total = 0;
@@ -32,6 +34,8 @@ class TodoNotifier extends ChangeNotifier {
   String get searchQuery => _searchQuery;
   String? get searchError => _searchError;
   String? get tagFilter => _tagFilter;
+  String? get assigneeFilter => _assigneeFilter;
+  List<String> get assignees => _assignees;
   int get page => _page;
   int get totalPages => _totalPages;
   int get total => _total;
@@ -70,6 +74,7 @@ class TodoNotifier extends ChangeNotifier {
         limit: kPageLimit,
         search: _searchQuery.isEmpty ? null : _searchQuery,
         tag: _tagFilter,
+        assignee: _assigneeFilter,
       );
       if (seq != _listSeq) return; // stale response
 
@@ -125,6 +130,22 @@ class TodoNotifier extends ChangeNotifier {
     await loadTodos();
   }
 
+  Future<void> setAssigneeFilter(String? assignee) async {
+    if (_assigneeFilter == assignee) return;
+    _assigneeFilter = assignee;
+    _page = 1;
+    await loadTodos();
+  }
+
+  Future<void> loadAssignees() async {
+    try {
+      _assignees = await TodoApi.getAssignees();
+      notifyListeners();
+    } catch (_) {
+      // 담당자 목록 로드 실패 시 필터 없이 계속 진행
+    }
+  }
+
   Future<bool> submitSearch(String keyword) async {
     final trimmed = keyword.trim();
     if (trimmed.length > 100) {
@@ -176,6 +197,7 @@ class TodoNotifier extends ChangeNotifier {
       _searchQuery = '';
       _searchError = null;
       _tagFilter = null;
+      _assigneeFilter = null;
       _page = 1;
       await loadTodos();
       return null;

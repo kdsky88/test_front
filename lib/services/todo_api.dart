@@ -11,12 +11,28 @@ const String _kApiBaseUrl = String.fromEnvironment(
 class TodoApi {
   static final String baseUrl = _kApiBaseUrl;
 
+  static Future<List<String>> getAssignees() async {
+    final uri = Uri.parse('$baseUrl/todos/assignees');
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = json['data'] as List<dynamic>;
+      return data.map((e) {
+        if (e is String) return e;
+        if (e is Map<String, dynamic>) return e['name'] as String? ?? '';
+        return '';
+      }).where((s) => s.isNotEmpty).toList();
+    }
+    throw _parseError(response);
+  }
+
   static Future<TodoListResponse> getTodos({
     required String status,
     required int page,
     int limit = 20,
     String? search,
     String? tag,
+    String? assignee,
   }) async {
     final queryParameters = {
       'status': status,
@@ -24,6 +40,7 @@ class TodoApi {
       'limit': '$limit',
       if (search != null && search.isNotEmpty) 'search': search,
       if (tag != null && tag.isNotEmpty) 'tag': tag,
+      if (assignee != null && assignee.isNotEmpty) 'assignee': assignee,
     };
     final uri = Uri.parse(
       '$baseUrl/todos',
