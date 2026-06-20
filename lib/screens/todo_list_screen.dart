@@ -23,6 +23,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
     widget.notifier.addListener(_syncSearchController);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.notifier.loadTodos(initial: true);
+      widget.notifier.loadAssignees();
     });
   }
 
@@ -152,38 +153,95 @@ class _TodoListScreenState extends State<TodoListScreen> {
           bottom: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _FilterButton(
-            label: '전체',
-            value: 'all',
-            current: n.filter,
-            onTap: () => n.setFilter('all'),
-          ),
-          const SizedBox(width: 6),
-          _FilterButton(
-            label: '미완료',
-            value: 'active',
-            current: n.filter,
-            onTap: () => n.setFilter('active'),
-          ),
-          const SizedBox(width: 6),
-          _FilterButton(
-            label: '완료',
-            value: 'completed',
-            current: n.filter,
-            onTap: () => n.setFilter('completed'),
-          ),
-          const Spacer(),
-          if (n.total > 0)
-            Text(
-              n.searchQuery.isEmpty ? '총 ${n.total}개' : '검색 결과 ${n.total}개',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+          Row(
+            children: [
+              _FilterButton(
+                label: '전체',
+                value: 'all',
+                current: n.filter,
+                onTap: () => n.setFilter('all'),
               ),
-            ),
+              const SizedBox(width: 6),
+              _FilterButton(
+                label: '미완료',
+                value: 'active',
+                current: n.filter,
+                onTap: () => n.setFilter('active'),
+              ),
+              const SizedBox(width: 6),
+              _FilterButton(
+                label: '완료',
+                value: 'completed',
+                current: n.filter,
+                onTap: () => n.setFilter('completed'),
+              ),
+              const Spacer(),
+              if (n.total > 0)
+                Text(
+                  n.searchQuery.isEmpty
+                      ? '총 ${n.total}개'
+                      : '검색 결과 ${n.total}개',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          if (n.assignees.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildAssigneeDropdown(context, n),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildAssigneeDropdown(BuildContext context, TodoNotifier n) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(
+          Icons.person_outline,
+          size: 16,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '담당자',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(width: 8),
+        DropdownButtonHideUnderline(
+          child: DropdownButton<String?>(
+            value: n.assigneeFilter,
+            isDense: true,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+            items: [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text(
+                  '전체',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+              ...n.assignees.map(
+                (a) => DropdownMenuItem<String?>(
+                  value: a,
+                  child: Text(a, style: theme.textTheme.bodySmall),
+                ),
+              ),
+            ],
+            onChanged: (value) => n.setAssigneeFilter(value),
+          ),
+        ),
+      ],
     );
   }
 
