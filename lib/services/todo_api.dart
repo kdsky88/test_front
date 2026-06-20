@@ -4,7 +4,8 @@ import '../models/todo.dart';
 
 const String _kApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://localhost:3000',
+  // 백엔드(Spring) server.port=8080 에 정렬. dart-define API_BASE_URL 로 오버라이드 가능.
+  defaultValue: 'http://localhost:8080',
 );
 
 class TodoApi {
