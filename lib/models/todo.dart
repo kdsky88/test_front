@@ -27,6 +27,7 @@ class Todo {
   final DateTime? completedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final List<String> tags;
 
   const Todo({
     required this.id,
@@ -39,6 +40,7 @@ class Todo {
     this.completedAt,
     required this.createdAt,
     required this.updatedAt,
+    this.tags = const [],
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
@@ -53,6 +55,7 @@ class Todo {
       completedAt: _parseDate(json['completedAt']),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
   }
 

@@ -68,6 +68,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             children: [
               _buildSearchBar(context, n),
               _buildFilterBar(context, n),
+              if (n.allTags.isNotEmpty) _buildTagFilterBar(context, n),
               Expanded(child: _buildBody(context, n)),
               if (n.totalPages > 1) _buildPagination(context, n),
             ],
@@ -182,6 +183,40 @@ class _TodoListScreenState extends State<TodoListScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTagFilterBar(BuildContext context, TodoNotifier n) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _TagChipButton(
+              label: '전체',
+              selected: n.tagFilter == null,
+              onTap: () => n.setTagFilter(null),
+            ),
+            ...n.allTags.map(
+              (tag) => Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: _TagChipButton(
+                  label: tag,
+                  selected: n.tagFilter == tag,
+                  onTap: () => n.setTagFilter(tag),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -389,6 +424,52 @@ class _FilterButton extends StatelessWidget {
                 : theme.colorScheme.onSurface,
             fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TagChipButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TagChipButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primaryContainer
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+            fontSize: 12,
           ),
         ),
       ),

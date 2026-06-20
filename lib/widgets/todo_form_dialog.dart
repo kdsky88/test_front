@@ -23,6 +23,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _descCtrl;
   late final TextEditingController _noteCtrl;
+  late final TextEditingController _tagCtrl;
   DateTime? _dueAt;
   late TodoPriority _priority;
   bool _submitting = false;
@@ -33,6 +34,14 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   String? _dueAtError;
   String? _priorityError;
 
+  // Create mode: locally collected tags
+  final List<String> _localTags = [];
+
+  // Edit mode: server-synced tags (immediate apply)
+  late List<String> _editTags;
+  bool _tagProcessing = false;
+  String? _tagError;
+
   bool get _isEdit => widget.todo != null;
 
   @override
@@ -41,8 +50,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _descCtrl = TextEditingController(text: widget.todo?.description ?? '');
     _noteCtrl = TextEditingController(text: widget.todo?.note ?? '');
+    _tagCtrl = TextEditingController();
     _dueAt = widget.todo?.dueAt ?? widget.initialDueAt;
     _priority = widget.todo?.priority ?? TodoPriority.medium;
+    _editTags = List.of(widget.todo?.tags ?? []);
   }
 
   @override
@@ -50,11 +61,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _noteCtrl.dispose();
+    _tagCtrl.dispose();
     super.dispose();
   }
 
   String _normalizeTitle(String value) {
-    // Trim unicode whitespace including full-width spaces (　)
     return value.replaceAll(RegExp(r'^[\s　]+|[\s　]+$'), '');
   }
 
@@ -149,6 +160,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         description: desc,
         note: note,
         dueAt: dueAtStr,
+        tags: List.of(_localTags),
       );
     }
 
@@ -204,9 +216,89 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     });
   }
 
+  void _addLocalTag() {
+    final tag = _tagCtrl.text.trim();
+    if (tag.isEmpty) return;
+    if (tag.length > 20) {
+      setState(() => _tagError = '태그는 20자 이하로 입력해주세요.');
+      return;
+    }
+    if (_localTags.contains(tag)) {
+      setState(() => _tagError = '이미 추가된 태그입니다.');
+      return;
+    }
+    if (_localTags.length >= 10) {
+      setState(() => _tagError = '태그는 최대 10개까지 추가할 수 있습니다.');
+      return;
+    }
+    setState(() {
+      _localTags.add(tag);
+      _tagCtrl.clear();
+      _tagError = null;
+    });
+  }
+
+  Future<void> _addEditTag() async {
+    final tag = _tagCtrl.text.trim();
+    if (tag.isEmpty) return;
+    if (tag.length > 20) {
+      setState(() => _tagError = '태그는 20자 이하로 입력해주세요.');
+      return;
+    }
+    if (_tagProcessing) return;
+
+    setState(() {
+      _tagProcessing = true;
+      _tagError = null;
+    });
+
+    final (updated, error) = await widget.notifier.addTagToTodo(
+      widget.todo!.id,
+      tag,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _tagProcessing = false;
+      if (updated != null) {
+        _editTags = List.of(updated.tags);
+        _tagCtrl.clear();
+        _tagError = null;
+      } else {
+        _tagError = error;
+      }
+    });
+  }
+
+  Future<void> _removeEditTag(String tag) async {
+    if (_tagProcessing) return;
+
+    setState(() {
+      _tagProcessing = true;
+      _tagError = null;
+    });
+
+    final (updated, error) = await widget.notifier.removeTagFromTodo(
+      widget.todo!.id,
+      tag,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _tagProcessing = false;
+      if (updated != null) {
+        _editTags = List.of(updated.tags);
+        _tagError = null;
+      } else {
+        _tagError = error;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final currentTags = _isEdit ? _editTags : _localTags;
     return AlertDialog(
       title: Text(_isEdit ? 'Todo 수정' : 'Todo 등록'),
       content: SingleChildScrollView(
@@ -321,6 +413,73 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                   ),
                 ),
               ),
+            const SizedBox(height: 8),
+            Text('태그', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _tagCtrl,
+                    decoration: InputDecoration(
+                      hintText: '태그 입력 (최대 20자)',
+                      errorText: _tagError,
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                      counterText: '',
+                    ),
+                    maxLength: 20,
+                    enabled: !_submitting && !_tagProcessing,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) =>
+                        _isEdit ? _addEditTag() : _addLocalTag(),
+                    onChanged: (_) => setState(() => _tagError = null),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 40,
+                  child: _tagProcessing
+                      ? const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : OutlinedButton(
+                          onPressed: _submitting
+                              ? null
+                              : (_isEdit ? _addEditTag : _addLocalTag),
+                          child: const Text('추가'),
+                        ),
+                ),
+              ],
+            ),
+            if (currentTags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: currentTags
+                    .map(
+                      (tag) => Chip(
+                        label: Text(tag, style: const TextStyle(fontSize: 12)),
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        onDeleted: _submitting || _tagProcessing
+                            ? null
+                            : () => _isEdit
+                                ? _removeEditTag(tag)
+                                : setState(() => _localTags.remove(tag)),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
             if (_generalError != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),

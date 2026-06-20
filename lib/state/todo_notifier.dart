@@ -11,6 +11,7 @@ class TodoNotifier extends ChangeNotifier {
   String _filter = 'all';
   String _searchQuery = '';
   String? _searchError;
+  String? _tagFilter;
   int _page = 1;
   int _totalPages = 0;
   int _total = 0;
@@ -30,6 +31,7 @@ class TodoNotifier extends ChangeNotifier {
   String get filter => _filter;
   String get searchQuery => _searchQuery;
   String? get searchError => _searchError;
+  String? get tagFilter => _tagFilter;
   int get page => _page;
   int get totalPages => _totalPages;
   int get total => _total;
@@ -37,6 +39,16 @@ class TodoNotifier extends ChangeNotifier {
   String? get listError => _listError;
   bool isProcessing(String id) => _processingIds.contains(id);
   String? itemError(String id) => _itemErrors[id];
+
+  List<String> get allTags {
+    final tags = <String>{};
+    for (final todo in _todos) {
+      tags.addAll(todo.tags);
+    }
+    if (_tagFilter != null) tags.add(_tagFilter!);
+    final list = tags.toList()..sort();
+    return list;
+  }
 
   bool get canGoPrev => _page > 1;
   bool get canGoNext => _page < _totalPages;
@@ -57,6 +69,7 @@ class TodoNotifier extends ChangeNotifier {
         page: _page,
         limit: kPageLimit,
         search: _searchQuery.isEmpty ? null : _searchQuery,
+        tag: _tagFilter,
       );
       if (seq != _listSeq) return; // stale response
 
@@ -105,6 +118,13 @@ class TodoNotifier extends ChangeNotifier {
     await loadTodos();
   }
 
+  Future<void> setTagFilter(String? tag) async {
+    if (_tagFilter == tag) return;
+    _tagFilter = tag;
+    _page = 1;
+    await loadTodos();
+  }
+
   Future<bool> submitSearch(String keyword) async {
     final trimmed = keyword.trim();
     if (trimmed.length > 100) {
@@ -138,19 +158,24 @@ class TodoNotifier extends ChangeNotifier {
     String? description,
     String? note,
     String? dueAt,
+    List<String> tags = const [],
   }) async {
     try {
-      await TodoApi.createTodo(
+      final created = await TodoApi.createTodo(
         title: title,
         priority: priority,
         description: description?.isNotEmpty == true ? description : null,
         note: note?.isNotEmpty == true ? note : null,
         dueAt: dueAt,
       );
+      for (final tag in tags) {
+        await TodoApi.addTag(id: created.id, tag: tag);
+      }
       // On success: always go to all/page 1
       _filter = 'all';
       _searchQuery = '';
       _searchError = null;
+      _tagFilter = null;
       _page = 1;
       await loadTodos();
       return null;
@@ -158,6 +183,40 @@ class TodoNotifier extends ChangeNotifier {
       return e.error.message;
     } catch (error) {
       return _dataErrorMessage(error);
+    }
+  }
+
+  /// Returns (updatedTodo, errorMessage). Updates local list on success.
+  Future<(Todo?, String?)> addTagToTodo(String id, String tag) async {
+    try {
+      final updated = await TodoApi.addTag(id: id, tag: tag);
+      final idx = _todos.indexWhere((t) => t.id == id);
+      if (idx >= 0) {
+        _todos = List.of(_todos)..[idx] = updated;
+        notifyListeners();
+      }
+      return (updated, null);
+    } on ApiException catch (e) {
+      return (null, e.error.message);
+    } catch (_) {
+      return (null, '태그를 추가할 수 없습니다.');
+    }
+  }
+
+  /// Returns (updatedTodo, errorMessage). Updates local list on success.
+  Future<(Todo?, String?)> removeTagFromTodo(String id, String tag) async {
+    try {
+      final updated = await TodoApi.removeTag(id: id, tag: tag);
+      final idx = _todos.indexWhere((t) => t.id == id);
+      if (idx >= 0) {
+        _todos = List.of(_todos)..[idx] = updated;
+        notifyListeners();
+      }
+      return (updated, null);
+    } on ApiException catch (e) {
+      return (null, e.error.message);
+    } catch (_) {
+      return (null, '태그를 삭제할 수 없습니다.');
     }
   }
 
