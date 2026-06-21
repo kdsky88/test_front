@@ -397,8 +397,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           todo.description!,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
+                              alpha: todo.completed ? 0.4 : 0.6,
                             ),
+                            decoration: todo.completed
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
@@ -420,7 +423,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           child: Text(
                             todo.note!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: todo.completed ? 0.5 : 1.0),
+                              decoration: todo.completed
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,
