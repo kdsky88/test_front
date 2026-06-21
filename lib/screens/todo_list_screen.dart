@@ -317,54 +317,67 @@ class _TodoListScreenState extends State<TodoListScreen> {
     final todos = n.todos;
     if (todos.isEmpty) {
       final hasSearch = n.searchQuery.isNotEmpty;
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.checklist, size: 56, color: Colors.grey),
-              const SizedBox(height: 12),
-              Text(
-                hasSearch
-                    ? '"${n.searchQuery}" 검색 결과가 없습니다.'
-                    : (n.filter == 'all'
-                          ? '등록된 할 일이 없습니다.'
-                          : (n.filter == 'active'
-                                ? '미완료 할 일이 없습니다.'
-                                : '완료된 할 일이 없습니다.')),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey, fontSize: 16),
+      return RefreshIndicator(
+        onRefresh: () => n.loadTodos(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: 400,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.checklist, size: 56, color: Colors.grey),
+                    const SizedBox(height: 12),
+                    Text(
+                      hasSearch
+                          ? '"${n.searchQuery}" 검색 결과가 없습니다.'
+                          : (n.filter == 'all'
+                                ? '등록된 할 일이 없습니다.'
+                                : (n.filter == 'active'
+                                      ? '미완료 할 일이 없습니다.'
+                                      : '완료된 할 일이 없습니다.')),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                    if (hasSearch) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () => _clearSearch(n),
+                        icon: const Icon(Icons.close),
+                        label: const Text('검색 해제'),
+                      ),
+                    ],
+                    if (n.filter == 'all') ...[
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => _openCreate(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text('할 일 추가'),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (hasSearch) ...[
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: () => _clearSearch(n),
-                  icon: const Icon(Icons.close),
-                  label: const Text('검색 해제'),
-                ),
-              ],
-              if (n.filter == 'all') ...[
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () => _openCreate(context),
-                  icon: const Icon(Icons.add),
-                  label: const Text('할 일 추가'),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(12),
-      itemCount: todos.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 4),
-      itemBuilder: (context, index) {
-        return TodoItemWidget(todo: todos[index], notifier: n);
-      },
+    return RefreshIndicator(
+      onRefresh: () => n.loadTodos(),
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        itemCount: todos.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          return TodoItemWidget(todo: todos[index], notifier: n);
+        },
+      ),
     );
   }
 
