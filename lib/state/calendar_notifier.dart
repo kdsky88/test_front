@@ -25,6 +25,10 @@ class CalendarNotifier extends ChangeNotifier {
   final Set<String> _processingIds = {};
   final Map<String, String> _itemErrors = {};
 
+  // Called after a successful server mutation so the app shell can refresh the
+  // other view immediately (after the change is persisted — avoids races).
+  void Function()? onMutated;
+
   CalendarNotifier() {
     final now = DateTime.now();
     _year = now.year;
@@ -60,10 +64,14 @@ class CalendarNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadCalendar() async {
-    _status = CalendarStatus.loading;
-    _error = null;
-    notifyListeners();
+  /// [silent] keeps the existing grid on screen during the reload (no loading
+  /// state), used for background refresh when the calendar tab is shown.
+  Future<void> loadCalendar({bool silent = false}) async {
+    if (!silent) {
+      _status = CalendarStatus.loading;
+      _error = null;
+      notifyListeners();
+    }
 
     final seq = ++_seq;
     try {
@@ -74,14 +82,17 @@ class CalendarNotifier extends ChangeNotifier {
           entry.key: sortCalendarTodosByPriority(entry.value),
       };
       _status = CalendarStatus.idle;
+      _error = null;
       notifyListeners();
     } on ApiException catch (e) {
       if (seq != _seq) return;
+      if (silent) return; // keep existing data on a background refresh failure
       _status = CalendarStatus.error;
       _error = e.error.message;
       notifyListeners();
     } catch (error) {
       if (seq != _seq) return;
+      if (silent) return;
       _status = CalendarStatus.error;
       _error = _dataErrorMessage(error);
       notifyListeners();
@@ -126,6 +137,7 @@ class CalendarNotifier extends ChangeNotifier {
       final updated = await TodoApi.updateTodo(id: id, completed: newCompleted);
       _processingIds.remove(id);
       _replaceTodo(id, updated);
+      onMutated?.call();
       notifyListeners();
     } on ApiException catch (e) {
       _processingIds.remove(id);
@@ -149,6 +161,7 @@ class CalendarNotifier extends ChangeNotifier {
       await TodoApi.deleteTodo(id);
       _processingIds.remove(id);
       _removeTodo(id);
+      onMutated?.call();
       await loadCalendar();
       return true;
     } on ApiException catch (e) {

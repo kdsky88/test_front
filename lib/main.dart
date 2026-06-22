@@ -22,6 +22,30 @@ class _TodoAppState extends State<TodoApp> {
   int _selectedTab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // After a change in one view is persisted, immediately refresh the other
+    // (silently) so it's already up to date regardless of when — or how fast —
+    // the user switches tabs. The tab-switch refresh below is a backup.
+    _todoNotifier.onMutated = () => _calendarNotifier.loadCalendar(silent: true);
+    _calendarNotifier.onMutated = () => _todoNotifier.loadTodos(silent: true);
+  }
+
+  void _onTabSelected(int index) {
+    if (index == _selectedTab) return;
+    setState(() => _selectedTab = index);
+    // Both views are independent caches, so refresh the one being shown to
+    // reflect changes (edit, complete, delete) made on the other tab. The
+    // reload is silent: existing content stays on screen until fresh data
+    // arrives.
+    if (index == 0) {
+      _todoNotifier.loadTodos(silent: true);
+    } else {
+      _calendarNotifier.loadCalendar(silent: true);
+    }
+  }
+
+  @override
   void dispose() {
     _todoNotifier.dispose();
     _calendarNotifier.dispose();
@@ -59,7 +83,7 @@ class _TodoAppState extends State<TodoApp> {
         ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedTab,
-          onTap: (i) => setState(() => _selectedTab = i),
+          onTap: _onTabSelected,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.list_alt_outlined),

@@ -29,6 +29,10 @@ class TodoNotifier extends ChangeNotifier {
   // Request sequencing: only apply result if sequence still matches
   int _listSeq = 0;
 
+  // Called after a successful server mutation so the app shell can refresh the
+  // other view immediately (after the change is persisted — avoids races).
+  void Function()? onMutated;
+
   List<Todo> get todos => _todos;
   String get filter => _filter;
   String get searchQuery => _searchQuery;
@@ -57,14 +61,16 @@ class TodoNotifier extends ChangeNotifier {
   bool get canGoPrev => _page > 1;
   bool get canGoNext => _page < _totalPages;
 
-  Future<void> loadTodos({bool initial = false}) async {
-    if (initial) {
-      _listStatus = ListStatus.initialLoading;
-    } else {
-      _listStatus = ListStatus.refreshing;
+  /// [silent] reloads without showing the refreshing state and keeps the
+  /// current data on failure — used for background refresh on tab switch.
+  Future<void> loadTodos({bool initial = false, bool silent = false}) async {
+    if (!silent) {
+      _listStatus = initial
+          ? ListStatus.initialLoading
+          : ListStatus.refreshing;
+      _listError = null;
+      notifyListeners();
     }
-    _listError = null;
-    notifyListeners();
 
     final seq = ++_listSeq;
     try {
@@ -81,7 +87,7 @@ class TodoNotifier extends ChangeNotifier {
       final lastValidPage = result.totalPages > 0 ? result.totalPages : 1;
       if (_page > lastValidPage || (result.data.isEmpty && _page > 1)) {
         _page = lastValidPage < _page ? lastValidPage : _page - 1;
-        await loadTodos();
+        await loadTodos(silent: silent);
         return;
       }
 
@@ -92,6 +98,7 @@ class TodoNotifier extends ChangeNotifier {
       notifyListeners();
     } on ApiException catch (e) {
       if (seq != _listSeq) return;
+      if (silent) return; // background refresh: keep existing data on failure
       if (e.error.code == 'INVALID_FILTER') {
         _filter = 'all';
         _page = 1;
@@ -110,6 +117,7 @@ class TodoNotifier extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       if (seq != _listSeq) return;
+      if (silent) return; // background refresh: keep existing data on failure
       _listStatus = ListStatus.error;
       _listError = _dataErrorMessage(error);
       notifyListeners();
@@ -199,6 +207,7 @@ class TodoNotifier extends ChangeNotifier {
       _tagFilter = null;
       _assigneeFilter = null;
       _page = 1;
+      onMutated?.call();
       await loadTodos();
       return null;
     } on ApiException catch (e) {
@@ -266,10 +275,12 @@ class TodoNotifier extends ChangeNotifier {
         clearNote: clearNote,
         clearDueAt: clearDueAt,
       );
+      onMutated?.call();
       await loadTodos();
       return (updated, null, null);
     } on ApiException catch (e) {
       if (e.error.code == 'TODO_NOT_FOUND') {
+        onMutated?.call();
         await loadTodos();
       }
       return (null, e, e.error.message);
@@ -305,6 +316,7 @@ class TodoNotifier extends ChangeNotifier {
           _todos = List.of(_todos)..[idx] = updated;
         }
       }
+      onMutated?.call();
       notifyListeners();
     } on ApiException catch (e) {
       _processingIds.remove(id);
@@ -327,6 +339,7 @@ class TodoNotifier extends ChangeNotifier {
     try {
       await TodoApi.deleteTodo(id);
       _processingIds.remove(id);
+      onMutated?.call();
 
       final wasLastOnPage = _todos.length == 1 && _page > 1;
       _todos = _todos.where((t) => t.id != id).toList();
