@@ -177,9 +177,7 @@ class TodoItemWidget extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                DateFormat(
-                                  'yyyy-MM-dd HH:mm',
-                                ).format(todo.dueAt!.toLocal()),
+                                '마감 ${DateFormat('yyyy-MM-dd HH:mm').format(todo.dueAt!.toLocal())}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: overdue
