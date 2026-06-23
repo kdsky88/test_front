@@ -66,7 +66,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openCreate(context),
             icon: const Icon(Icons.add),
-            label: const Text('새 Todo'),
+            label: const Text('새 할 일'),
           ),
           body: Column(
             children: [

@@ -74,14 +74,32 @@ class Todo {
     }
   }
 
+  /// 마감 시각이 이미 지남 → 빨강 (기한 경과)
   bool get isOverdue {
     if (completed || dueAt == null) return false;
     return dueAt!.isBefore(DateTime.now());
   }
 
+  /// 마감일이 오늘이고 아직 지나지 않음 → 빨강 (오늘 마감)
+  bool get isDueToday {
+    if (completed || isOverdue) return false;
+    return _daysUntilDue == 0;
+  }
+
+  /// 마감 하루 전(내일 마감) → 주황
   bool get isDueSoon {
-    if (completed || dueAt == null || isOverdue) return false;
-    return dueAt!.difference(DateTime.now()).inHours <= 24;
+    if (completed) return false;
+    return _daysUntilDue == 1;
+  }
+
+  /// 마감일(로컬 날짜) - 오늘(로컬 날짜) 의 일수 차이. dueAt 없으면 null.
+  int? get _daysUntilDue {
+    if (dueAt == null) return null;
+    final due = dueAt!.toLocal();
+    final now = DateTime.now();
+    return DateTime(due.year, due.month, due.day)
+        .difference(DateTime(now.year, now.month, now.day))
+        .inDays;
   }
 
   Todo copyWith({

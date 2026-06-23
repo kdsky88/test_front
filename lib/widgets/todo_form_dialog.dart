@@ -325,244 +325,238 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     });
   }
 
+  Widget _buildDateField({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onPick,
+    required VoidCallback onClear,
+    String? errorText,
+  }) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: _submitting ? null : onPick,
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          errorText: errorText,
+          isDense: true,
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.event_outlined, size: 20),
+          suffixIcon: value != null
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: '$label 제거',
+                  onPressed: _submitting ? null : onClear,
+                )
+              : const Icon(Icons.chevron_right, size: 20),
+        ),
+        child: Text(
+          value != null
+              ? DateFormat('yyyy-MM-dd HH:mm').format(value.toLocal())
+              : '선택 안 함',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: value != null
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final currentTags = _isEdit ? _editTags : _localTags;
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: theme.colorScheme.primary,
+      fontWeight: FontWeight.w600,
+    );
     return AlertDialog(
-      title: Text(_isEdit ? 'Todo 수정' : 'Todo 등록'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _titleCtrl,
-              decoration: InputDecoration(
-                labelText: '제목 *',
-                errorText: _titleError,
-                counterText: '${_titleCtrl.text.length}/100',
+      title: Text(_isEdit ? '할 일 수정' : '할 일 등록'),
+      content: SizedBox(
+        width: (MediaQuery.of(context).size.width - 80).clamp(280.0, 460.0),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('제목 *', style: labelStyle),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _titleCtrl,
+                decoration: InputDecoration(
+                  hintText: '할 일 제목',
+                  errorText: _titleError,
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  counterText: '',
+                ),
+                maxLength: 110,
+                enabled: !_submitting,
+                onChanged: (_) => setState(() {}),
               ),
-              maxLength: 110,
-              enabled: !_submitting,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _noteCtrl,
-              decoration: InputDecoration(
-                labelText: '메모(상세 설명)',
-                errorText: _noteError,
-                counterText: '${_noteCtrl.text.length}/1000',
+              const SizedBox(height: 14),
+              Text('메모(상세 설명)', style: labelStyle),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _noteCtrl,
+                decoration: InputDecoration(
+                  hintText: '메모를 입력하세요',
+                  errorText: _noteError,
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  counterText: '',
+                ),
+                minLines: 3,
+                maxLines: 6,
+                maxLength: 1010,
+                enabled: !_submitting,
+                onChanged: (_) => setState(() {}),
               ),
-              minLines: 3,
-              maxLines: 6,
-              maxLength: 1010,
-              enabled: !_submitting,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '우선순위',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 6),
-            SegmentedButton<TodoPriority>(
-              segments: TodoPriority.values
-                  .map(
-                    (priority) => ButtonSegment<TodoPriority>(
-                      value: priority,
-                      label: Text(priority.label),
-                    ),
-                  )
-                  .toList(),
-              selected: {_priority},
-              onSelectionChanged: _submitting
-                  ? null
-                  : (selected) {
-                      setState(() {
-                        _priority = selected.first;
-                        _priorityError = null;
-                      });
-                    },
-            ),
-            if (_priorityError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  _priorityError!,
-                  style: TextStyle(
-                    color: theme.colorScheme.error,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _startAt != null
-                        ? '시작일: ${DateFormat('yyyy-MM-dd HH:mm').format(_startAt!.toLocal())}'
-                        : '시작일 없음',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                if (_startAt != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    tooltip: '시작일 제거',
-                    onPressed: _submitting
-                        ? null
-                        : () => setState(() {
-                            _startAt = null;
-                            _startAtError = null;
-                          }),
-                  ),
-                TextButton(
-                  onPressed: _submitting ? null : _pickStartAt,
-                  child: Text(_startAt != null ? '변경' : '선택'),
-                ),
-              ],
-            ),
-            if (_startAtError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  _startAtError!,
-                  style: TextStyle(
-                    color: theme.colorScheme.error,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _dueAt != null
-                        ? '마감일: ${DateFormat('yyyy-MM-dd HH:mm').format(_dueAt!.toLocal())}'
-                        : '마감일 없음',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                if (_dueAt != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    tooltip: '마감일 제거',
-                    onPressed: _submitting
-                        ? null
-                        : () => setState(() {
-                            _dueAt = null;
-                            _startAtError = null;
-                          }),
-                  ),
-                TextButton(
-                  onPressed: _submitting ? null : _pickDueAt,
-                  child: Text(_dueAt != null ? '변경' : '선택'),
-                ),
-              ],
-            ),
-            if (_dueAtError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  _dueAtError!,
-                  style: TextStyle(
-                    color: theme.colorScheme.error,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 8),
-            Text(
-              '태그',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _tagCtrl,
-                    decoration: InputDecoration(
-                      hintText: '태그 입력 (최대 20자)',
-                      errorText: _tagError,
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      counterText: '',
-                    ),
-                    maxLength: 20,
-                    enabled: !_submitting && !_tagProcessing,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) =>
-                        _isEdit ? _addEditTag() : _addLocalTag(),
-                    onChanged: (_) => setState(() => _tagError = null),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 40,
-                  child: _tagProcessing
-                      ? const Padding(
-                          padding: EdgeInsets.all(10),
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : OutlinedButton(
-                          onPressed: _submitting
-                              ? null
-                              : (_isEdit ? _addEditTag : _addLocalTag),
-                          child: const Text('추가'),
-                        ),
-                ),
-              ],
-            ),
-            if (currentTags.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: currentTags
+              const SizedBox(height: 14),
+              Text('우선순위', style: labelStyle),
+              const SizedBox(height: 6),
+              SegmentedButton<TodoPriority>(
+                segments: TodoPriority.values
                     .map(
-                      (tag) => Chip(
-                        label: Text(tag, style: const TextStyle(fontSize: 12)),
-                        deleteIcon: const Icon(Icons.close, size: 14),
-                        onDeleted: _submitting || _tagProcessing
-                            ? null
-                            : () => _isEdit
-                                ? _removeEditTag(tag)
-                                : setState(() => _localTags.remove(tag)),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      (priority) => ButtonSegment<TodoPriority>(
+                        value: priority,
+                        label: Text(priority.label),
                       ),
                     )
                     .toList(),
+                selected: {_priority},
+                onSelectionChanged: _submitting
+                    ? null
+                    : (selected) {
+                        setState(() {
+                          _priority = selected.first;
+                          _priorityError = null;
+                        });
+                      },
               ),
-            ],
-            if (_generalError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _generalError!,
-                  style: TextStyle(
-                    color: theme.colorScheme.error,
-                    fontSize: 13,
+              if (_priorityError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _priorityError!,
+                    style: TextStyle(
+                      color: theme.colorScheme.error,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
+              const SizedBox(height: 14),
+              Text('시작일', style: labelStyle),
+              const SizedBox(height: 6),
+              _buildDateField(
+                label: '시작일',
+                value: _startAt,
+                onPick: _pickStartAt,
+                onClear: () => setState(() {
+                  _startAt = null;
+                  _startAtError = null;
+                }),
+                errorText: _startAtError,
               ),
-          ],
+              const SizedBox(height: 14),
+              Text('마감일', style: labelStyle),
+              const SizedBox(height: 6),
+              _buildDateField(
+                label: '마감일',
+                value: _dueAt,
+                onPick: _pickDueAt,
+                onClear: () => setState(() {
+                  _dueAt = null;
+                  _startAtError = null;
+                }),
+                errorText: _dueAtError,
+              ),
+              const SizedBox(height: 14),
+              Text('태그', style: labelStyle),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _tagCtrl,
+                      decoration: InputDecoration(
+                        hintText: '태그 입력 (최대 20자)',
+                        errorText: _tagError,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                      maxLength: 20,
+                      enabled: !_submitting && !_tagProcessing,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) =>
+                          _isEdit ? _addEditTag() : _addLocalTag(),
+                      onChanged: (_) => setState(() => _tagError = null),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 40,
+                    child: _tagProcessing
+                        ? const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : OutlinedButton(
+                            onPressed: _submitting
+                                ? null
+                                : (_isEdit ? _addEditTag : _addLocalTag),
+                            child: const Text('추가'),
+                          ),
+                  ),
+                ],
+              ),
+              if (currentTags.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: currentTags
+                      .map(
+                        (tag) => Chip(
+                          label: Text(
+                            tag,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 14),
+                          onDeleted: _submitting || _tagProcessing
+                              ? null
+                              : () => _isEdit
+                                    ? _removeEditTag(tag)
+                                    : setState(() => _localTags.remove(tag)),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+              if (_generalError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _generalError!,
+                    style: TextStyle(
+                      color: theme.colorScheme.error,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
       actions: [

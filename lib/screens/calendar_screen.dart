@@ -41,7 +41,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openCreate(context),
             icon: const Icon(Icons.add),
-            label: const Text('새 Todo'),
+            label: const Text('새 할 일'),
           ),
           body: Column(
             children: [
@@ -350,17 +350,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isProcessing = n.isProcessing(todo.id);
     final itemError = n.itemError(todo.id);
     final overdue = todo.isOverdue;
+    final dueToday = todo.isDueToday;
     final dueSoon = todo.isDueSoon;
+    final dueRed = overdue || dueToday; // 당일/경과 → 빨강, 하루 전 → 주황
+    final dueAccent = dueRed
+        ? theme.colorScheme.error
+        : (dueSoon
+              ? Colors.orange.shade500
+              : theme.colorScheme.onSurface.withValues(alpha: 0.5));
 
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: overdue
+        side: dueRed
             ? BorderSide(color: theme.colorScheme.error, width: 1.5)
             : (dueSoon
-                  ? BorderSide(color: Colors.red.shade300, width: 1.5)
+                  ? BorderSide(color: Colors.orange.shade500, width: 1.5)
                   : BorderSide(color: theme.colorScheme.outlineVariant)),
       ),
       color: todo.completed
@@ -494,29 +501,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             Icon(
                               overdue
                                   ? Icons.alarm_off
-                                  : (dueSoon
+                                  : ((dueToday || dueSoon)
                                         ? Icons.alarm
                                         : Icons.schedule),
                               size: 14,
-                              color: overdue
-                                  ? theme.colorScheme.error
-                                  : (dueSoon
-                                        ? Colors.orange.shade700
-                                        : theme.colorScheme.onSurface
-                                              .withValues(alpha: 0.5)),
+                              color: dueAccent,
                             ),
                             const SizedBox(width: 4),
                             Text(
                               '마감 ${DateFormat('yyyy-MM-dd HH:mm').format(todo.dueAt!.toLocal())}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: overdue
-                                    ? theme.colorScheme.error
-                                    : (dueSoon
-                                          ? Colors.orange.shade700
-                                          : theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.5)),
-                                fontWeight: (overdue || dueSoon)
+                                color: dueAccent,
+                                fontWeight: (dueRed || dueSoon)
                                     ? FontWeight.w600
                                     : null,
                               ),
@@ -531,13 +528,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                            ] else if (dueToday) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '오늘 마감',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.error,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ] else if (dueSoon) ...[
                               const SizedBox(width: 4),
                               Text(
                                 '임박',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.orange.shade700,
+                                  color: Colors.orange.shade500,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
