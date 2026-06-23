@@ -65,6 +65,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // ─── Month header ──────────────────────────────────────────────
 
   Widget _buildMonthHeader(BuildContext context, CalendarNotifier n) {
+    final theme = Theme.of(context);
     final loading = n.status == CalendarStatus.loading;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -72,6 +73,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         children: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
+            color: theme.colorScheme.primary,
             tooltip: '이전 달',
             onPressed: loading ? null : () => n.prevMonth(),
           ),
@@ -79,13 +81,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: Text(
               '${n.year}년 ${n.month}월',
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right),
+            color: theme.colorScheme.primary,
             tooltip: '다음 달',
             onPressed: loading ? null : () => n.nextMonth(),
           ),
@@ -125,7 +128,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  static const Color _sundayColor = Color(0xFFE5534B); // 일요일 빨강
+  static const Color _saturdayColor = Color(0xFF9AA0A6); // 토요일 회색
+
   Widget _buildCalendarGrid(BuildContext context, CalendarNotifier n) {
+    final theme = Theme.of(context);
     final firstDay = DateTime(n.year, n.month, 1);
     final daysInMonth = DateTime(n.year, n.month + 1, 0).day;
     final offset = firstDay.weekday % 7; // Sunday = 0 (week starts on Sunday)
@@ -145,22 +152,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: Column(
         children: [
           Row(
-            children: weekdays
-                .map(
-                  (d) => Expanded(
-                    child: Center(
-                      child: Text(
-                        d,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey,
-                        ),
-                      ),
+            children: List.generate(7, (i) {
+              final color = i == 0
+                  ? _sundayColor
+                  : (i == 6
+                        ? _saturdayColor
+                        : theme.colorScheme.onSurfaceVariant);
+              return Expanded(
+                child: Center(
+                  child: Text(
+                    weekdays[i],
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
                     ),
                   ),
-                )
-                .toList(),
+                ),
+              );
+            }),
           ),
           const SizedBox(height: 4),
           for (int row = 0; row < cells.length ~/ 7; row++)
@@ -192,6 +202,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final hasTodos = n.hasTodos(date);
     final theme = Theme.of(context);
 
+    final Color? dayColor;
+    if (isSelected) {
+      dayColor = Colors.white;
+    } else if (isToday) {
+      dayColor = theme.colorScheme.primary;
+    } else if (date.weekday == DateTime.sunday) {
+      dayColor = _sundayColor;
+    } else if (date.weekday == DateTime.saturday) {
+      dayColor = _saturdayColor;
+    } else {
+      dayColor = null;
+    }
+
     return GestureDetector(
       onTap: () => n.selectDate(date),
       child: SizedBox(
@@ -215,10 +238,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   '$day',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected
-                        ? Colors.white
-                        : (isToday ? theme.colorScheme.primary : null),
+                    fontWeight: isToday || isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: dayColor,
                   ),
                 ),
               ),
@@ -245,6 +268,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // ─── Selected date label ───────────────────────────────────────
 
   Widget _buildSelectedDateLabel(BuildContext context, CalendarNotifier n) {
+    final theme = Theme.of(context);
     final d = n.selectedDate;
     final label = DateFormat('yyyy년 M월 d일 (E)', 'ko').format(d);
     return Padding(
@@ -253,16 +277,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
         children: [
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(width: 6),
-          Text(
-            '${(widget.calendarNotifier.selectedDateTodos.length)}개',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '${n.selectedDateTodos.length}개',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -274,30 +306,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildTodoList(BuildContext context, CalendarNotifier n) {
     final todos = n.selectedDateTodos;
     if (todos.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.event_available, size: 48, color: Colors.grey),
-            const SizedBox(height: 12),
-            const Text(
-              '등록된 할 일이 없습니다.',
-              style: TextStyle(color: Colors.grey, fontSize: 15),
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.event_available,
+                    size: 48,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '등록된 할 일이 없습니다.',
+                    style: TextStyle(color: Colors.grey, fontSize: 15),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () => _openCreate(context),
+                    icon: const Icon(Icons.add),
+                    label: const Text('할 일 추가'),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => _openCreate(context),
-              icon: const Icon(Icons.add),
-              label: const Text('할 일 추가'),
-            ),
-          ],
+          ),
         ),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
       itemCount: todos.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 4),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) => _buildTodoItem(context, todos[index], n),
     );
   }
@@ -312,16 +355,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: overdue
+            ? BorderSide(color: theme.colorScheme.error, width: 1.5)
+            : (dueSoon
+                  ? BorderSide(color: Colors.red.shade300, width: 1.5)
+                  : BorderSide(color: theme.colorScheme.outlineVariant)),
+      ),
       color: todo.completed
           ? theme.colorScheme.surfaceContainerLow
-          : (overdue
-                ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
-                : (dueSoon
-                      ? Colors.orange.withValues(alpha: 0.08)
-                      : theme.colorScheme.surface)),
+          : theme.colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -461,7 +507,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              DateFormat('HH:mm').format(todo.dueAt!.toLocal()),
+                              '마감 ${DateFormat('yyyy-MM-dd HH:mm').format(todo.dueAt!.toLocal())}',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: overdue

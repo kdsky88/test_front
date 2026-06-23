@@ -33,11 +33,13 @@ class TodoApi {
     String? search,
     String? tag,
     String? assignee,
+    String sort = 'priority',
   }) async {
     final queryParameters = {
       'status': status,
       'page': '$page',
       'limit': '$limit',
+      'sort': sort,
       if (search != null && search.isNotEmpty) 'search': search,
       if (tag != null && tag.isNotEmpty) 'tag': tag,
       if (assignee != null && assignee.isNotEmpty) 'assignee': assignee,

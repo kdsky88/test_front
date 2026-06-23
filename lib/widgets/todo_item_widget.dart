@@ -24,17 +24,20 @@ class TodoItemWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Card(
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: overdue
+              ? BorderSide(color: theme.colorScheme.error, width: 1.5)
+              : (dueSoon
+                    ? BorderSide(color: Colors.red.shade300, width: 1.5)
+                    : BorderSide(color: theme.colorScheme.outlineVariant)),
+        ),
         color: todo.completed
             ? theme.colorScheme.surfaceContainerLow
-            : (overdue
-                  ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
-                  : (dueSoon
-                        ? Colors.orange.withValues(alpha: 0.08)
-                        : theme.colorScheme.surface)),
+            : theme.colorScheme.surface,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

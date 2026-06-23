@@ -56,7 +56,10 @@ class _TodoListScreenState extends State<TodoListScreen> {
             bottom: n.listStatus == ListStatus.refreshing
                 ? const PreferredSize(
                     preferredSize: Size.fromHeight(2),
-                    child: LinearProgressIndicator(),
+                    child: LinearProgressIndicator(
+                      color: Colors.white,
+                      backgroundColor: Colors.white24,
+                    ),
                   )
                 : null,
           ),
@@ -190,12 +193,48 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: 8),
+          _buildSortDropdown(context, n),
           if (n.assignees.isNotEmpty) ...[
             const SizedBox(height: 8),
             _buildAssigneeDropdown(context, n),
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildSortDropdown(BuildContext context, TodoNotifier n) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(Icons.sort, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Text(
+          '정렬',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(width: 8),
+        DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: n.sort,
+            isDense: true,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'priority', child: Text('우선순위순')),
+              DropdownMenuItem(value: 'dueAt', child: Text('마감일순')),
+              DropdownMenuItem(value: 'createdAt', child: Text('등록순')),
+            ],
+            onChanged: (value) {
+              if (value != null) n.setSort(value);
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -371,9 +410,9 @@ class _TodoListScreenState extends State<TodoListScreen> {
       onRefresh: () => n.loadTodos(),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
         itemCount: todos.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           return TodoItemWidget(todo: todos[index], notifier: n);
         },

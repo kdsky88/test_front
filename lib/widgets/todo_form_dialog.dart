@@ -362,7 +362,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 8),
-            Text('우선순위', style: theme.textTheme.labelLarge),
+            Text(
+              '우선순위',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 6),
             SegmentedButton<TodoPriority>(
               segments: TodoPriority.values
@@ -473,7 +479,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                 ),
               ),
             const SizedBox(height: 8),
-            Text('태그', style: theme.textTheme.labelLarge),
+            Text(
+              '태그',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,

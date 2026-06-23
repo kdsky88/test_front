@@ -37,11 +37,11 @@ class _TodoAppState extends State<TodoApp> {
     // Both views are independent caches, so refresh the one being shown to
     // reflect changes (edit, complete, delete) made on the other tab. The
     // reload is silent: existing content stays on screen until fresh data
-    // arrives.
+    // arrives. Tab 0 = 달력, tab 1 = 목록.
     if (index == 0) {
-      _todoNotifier.loadTodos(silent: true);
-    } else {
       _calendarNotifier.loadCalendar(silent: true);
+    } else {
+      _todoNotifier.loadTodos(silent: true);
     }
   }
 
@@ -54,12 +54,34 @@ class _TodoAppState extends State<TodoApp> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB));
     return MaterialApp(
       title: 'Todo List',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
+        colorScheme: colorScheme,
         useMaterial3: true,
+        appBarTheme: AppBarTheme(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          elevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: colorScheme.onPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          selectedItemColor: colorScheme.primary,
+          unselectedItemColor: colorScheme.onSurfaceVariant,
+          type: BottomNavigationBarType.fixed,
+          elevation: 8,
+        ),
       ),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -74,11 +96,11 @@ class _TodoAppState extends State<TodoApp> {
         body: IndexedStack(
           index: _selectedTab,
           children: [
-            TodoListScreen(notifier: _todoNotifier),
             CalendarScreen(
               calendarNotifier: _calendarNotifier,
               todoNotifier: _todoNotifier,
             ),
+            TodoListScreen(notifier: _todoNotifier),
           ],
         ),
         bottomNavigationBar: BottomNavigationBar(
@@ -86,14 +108,14 @@ class _TodoAppState extends State<TodoApp> {
           onTap: _onTabSelected,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.list_alt_outlined),
-              activeIcon: Icon(Icons.list_alt),
-              label: '목록',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.calendar_month_outlined),
               activeIcon: Icon(Icons.calendar_month),
               label: '달력',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.list_alt_outlined),
+              activeIcon: Icon(Icons.list_alt),
+              label: '목록',
             ),
           ],
         ),
