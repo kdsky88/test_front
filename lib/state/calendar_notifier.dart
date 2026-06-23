@@ -8,8 +8,9 @@ List<Todo> sortCalendarTodosByPriority(Iterable<Todo> todos) {
   final indexedTodos = todos.indexed.toList();
   indexedTodos.sort((a, b) {
     // 완료 항목은 항상 아래로
-    final completedOrder =
-        (a.$2.completed ? 1 : 0).compareTo(b.$2.completed ? 1 : 0);
+    final completedOrder = (a.$2.completed ? 1 : 0).compareTo(
+      b.$2.completed ? 1 : 0,
+    );
     if (completedOrder != 0) return completedOrder;
     final priorityOrder = a.$2.priority.index.compareTo(b.$2.priority.index);
     return priorityOrder != 0 ? priorityOrder : a.$1.compareTo(b.$1);
@@ -46,9 +47,11 @@ class CalendarNotifier extends ChangeNotifier {
   CalendarStatus get status => _status;
   String? get error => _error;
 
-  List<Todo> get selectedDateTodos => _calendarData[_dateKey(_selectedDate)] ?? [];
+  List<Todo> get selectedDateTodos =>
+      _calendarData[_dateKey(_selectedDate)] ?? [];
 
-  bool hasTodos(DateTime date) => (_calendarData[_dateKey(date)]?.isNotEmpty ?? false);
+  bool hasTodos(DateTime date) =>
+      (_calendarData[_dateKey(date)]?.isNotEmpty ?? false);
 
   bool isProcessing(String id) => _processingIds.contains(id);
   String? itemError(String id) => _itemErrors[id];

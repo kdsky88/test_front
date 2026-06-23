@@ -16,10 +16,17 @@ class PriorityBadge extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(4)),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Text(
         priority.label,
-        style: TextStyle(fontSize: 11, color: foreground, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          fontSize: 11,
+          color: foreground,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

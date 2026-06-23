@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_item_widget.dart';
 import '../widgets/todo_form_dialog.dart';
@@ -70,6 +71,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ),
           body: Column(
             children: [
+              if (n.stats != null) _buildStatsCard(context, n.stats!),
               _buildSearchBar(context, n),
               _buildFilterBar(context, n),
               if (n.allTags.isNotEmpty) _buildTagFilterBar(context, n),
@@ -79,6 +81,63 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildStatsCard(BuildContext context, TodoStats stats) {
+    final theme = Theme.of(context);
+    Widget tile(String label, String value, Color color) {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          tile('전체', '${stats.total}', theme.colorScheme.onSurface),
+          tile('완료율', '${stats.completionPercent}%', theme.colorScheme.primary),
+          tile('미완료', '${stats.active}', theme.colorScheme.onSurface),
+          tile(
+            '지연',
+            '${stats.overdue}',
+            stats.overdue > 0
+                ? theme.colorScheme.error
+                : theme.colorScheme.onSurface,
+          ),
+          tile(
+            '오늘',
+            '${stats.dueToday}',
+            stats.dueToday > 0
+                ? Colors.orange.shade700
+                : theme.colorScheme.onSurface,
+          ),
+        ],
+      ),
     );
   }
 
@@ -184,9 +243,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
               const Spacer(),
               if (n.total > 0)
                 Text(
-                  n.searchQuery.isEmpty
-                      ? '총 ${n.total}개'
-                      : '검색 결과 ${n.total}개',
+                  n.searchQuery.isEmpty ? '총 ${n.total}개' : '검색 결과 ${n.total}개',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -278,10 +335,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             items: [
               DropdownMenuItem<String?>(
                 value: null,
-                child: Text(
-                  '전체',
-                  style: theme.textTheme.bodySmall,
-                ),
+                child: Text('전체', style: theme.textTheme.bodySmall),
               ),
               ...n.assignees.map(
                 (a) => DropdownMenuItem<String?>(

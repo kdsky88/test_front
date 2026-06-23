@@ -460,7 +460,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             todo.note!,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: todo.completed ? 0.5 : 1.0),
+                                  .withValues(
+                                    alpha: todo.completed ? 0.5 : 1.0,
+                                  ),
                               decoration: todo.completed
                                   ? TextDecoration.lineThrough
                                   : null,
@@ -549,6 +551,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 ),
                               ),
                             ],
+                          ],
+                        ),
+                      ],
+                      if (todo.recurrence != TodoRecurrence.none) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.repeat,
+                              size: 13,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              todo.recurrence.shortLabel,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
                       ],

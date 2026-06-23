@@ -26,6 +26,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   DateTime? _startAt;
   DateTime? _dueAt;
   late TodoPriority _priority;
+  late TodoRecurrence _recurrence;
   bool _submitting = false;
   String? _generalError;
   String? _titleError;
@@ -33,6 +34,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   String? _startAtError;
   String? _dueAtError;
   String? _priorityError;
+  String? _recurrenceError;
 
   // Create mode: locally collected tags
   final List<String> _localTags = [];
@@ -53,6 +55,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _startAt = widget.todo?.startAt;
     _dueAt = widget.todo?.dueAt ?? widget.initialDueAt;
     _priority = widget.todo?.priority ?? TodoPriority.medium;
+    _recurrence = widget.todo?.recurrence ?? TodoRecurrence.none;
     _editTags = List.of(widget.todo?.tags ?? []);
   }
 
@@ -87,13 +90,22 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       startErr = '시작일은 마감일보다 늦을 수 없습니다.';
     }
 
+    String? recurErr;
+    if (_recurrence != TodoRecurrence.none && _dueAt == null) {
+      recurErr = '반복 일정은 마감일이 필요합니다.';
+    }
+
     setState(() {
       _titleError = titleErr;
       _noteError = noteErr;
       _startAtError = startErr;
+      _recurrenceError = recurErr;
     });
 
-    return titleErr == null && noteErr == null && startErr == null;
+    return titleErr == null &&
+        noteErr == null &&
+        startErr == null &&
+        recurErr == null;
   }
 
   Future<void> _submit() async {
@@ -108,6 +120,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       _startAtError = null;
       _dueAtError = null;
       _priorityError = null;
+      _recurrenceError = null;
     });
 
     final normalizedTitle = _normalizeTitle(_titleCtrl.text);
@@ -121,6 +134,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     String? startErr;
     String? dueErr;
     String? priorityErr;
+    String? recurErr;
 
     if (_isEdit) {
       final todo = widget.todo!;
@@ -131,6 +145,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         note: note,
         startAt: startAtStr,
         dueAt: dueAtStr,
+        recurrence: _recurrence.apiValue,
         clearNote: note == null,
         clearStartAt: _startAt == null,
         clearDueAt: _dueAt == null,
@@ -143,11 +158,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
           startErr = apiEx.error.fields?['startAt'];
           dueErr = apiEx.error.fields?['dueAt'];
           priorityErr = apiEx.error.fields?['priority'];
+          recurErr = apiEx.error.fields?['recurrence'];
           if (titleErr != null ||
               noteErr != null ||
               startErr != null ||
               dueErr != null ||
-              priorityErr != null) {
+              priorityErr != null ||
+              recurErr != null) {
             errorMsg = null;
           }
         }
@@ -159,6 +176,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         note: note,
         startAt: startAtStr,
         dueAt: dueAtStr,
+        recurrence: _recurrence.apiValue,
         tags: List.of(_localTags),
       );
     }
@@ -171,7 +189,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         noteErr == null &&
         startErr == null &&
         dueErr == null &&
-        priorityErr == null) {
+        priorityErr == null &&
+        recurErr == null) {
       Navigator.of(context).pop(true);
     } else {
       setState(() {
@@ -181,6 +200,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         _startAtError = startErr;
         _dueAtError = dueErr;
         _priorityError = priorityErr;
+        _recurrenceError = recurErr;
       });
     }
   }
@@ -473,6 +493,39 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                 }),
                 errorText: _dueAtError,
               ),
+              const SizedBox(height: 14),
+              Text('반복', style: labelStyle),
+              const SizedBox(height: 6),
+              SegmentedButton<TodoRecurrence>(
+                segments: TodoRecurrence.values
+                    .map(
+                      (r) => ButtonSegment<TodoRecurrence>(
+                        value: r,
+                        label: Text(r.shortLabel),
+                      ),
+                    )
+                    .toList(),
+                selected: {_recurrence},
+                onSelectionChanged: _submitting
+                    ? null
+                    : (selected) {
+                        setState(() {
+                          _recurrence = selected.first;
+                          _recurrenceError = null;
+                        });
+                      },
+              ),
+              if (_recurrenceError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _recurrenceError!,
+                    style: TextStyle(
+                      color: theme.colorScheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 14),
               Text('태그', style: labelStyle),
               const SizedBox(height: 6),

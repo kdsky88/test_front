@@ -16,6 +16,26 @@ enum TodoPriority {
   }
 }
 
+enum TodoRecurrence {
+  none('NONE', '반복 없음', '없음'),
+  daily('DAILY', '매일 반복', '매일'),
+  weekly('WEEKLY', '매주 반복', '매주'),
+  monthly('MONTHLY', '매월 반복', '매월');
+
+  const TodoRecurrence(this.apiValue, this.label, this.shortLabel);
+
+  final String apiValue;
+  final String label;
+  final String shortLabel;
+
+  static TodoRecurrence fromJson(dynamic value) {
+    return TodoRecurrence.values.firstWhere(
+      (r) => r.apiValue == value,
+      orElse: () => TodoRecurrence.none,
+    );
+  }
+}
+
 class Todo {
   final String id;
   final String title;
@@ -30,6 +50,7 @@ class Todo {
   final DateTime updatedAt;
   final List<String> tags;
   final String? assignee;
+  final TodoRecurrence recurrence;
 
   const Todo({
     required this.id,
@@ -45,6 +66,7 @@ class Todo {
     required this.updatedAt,
     this.tags = const [],
     this.assignee,
+    this.recurrence = TodoRecurrence.none,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
@@ -62,6 +84,7 @@ class Todo {
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
       assignee: json['assignee'] as String?,
+      recurrence: TodoRecurrence.fromJson(json['recurrence']),
     );
   }
 
@@ -97,9 +120,11 @@ class Todo {
     if (dueAt == null) return null;
     final due = dueAt!.toLocal();
     final now = DateTime.now();
-    return DateTime(due.year, due.month, due.day)
-        .difference(DateTime(now.year, now.month, now.day))
-        .inDays;
+    return DateTime(
+      due.year,
+      due.month,
+      due.day,
+    ).difference(DateTime(now.year, now.month, now.day)).inDays;
   }
 
   Todo copyWith({
@@ -116,6 +141,7 @@ class Todo {
     bool clearCompletedAt = false,
     DateTime? updatedAt,
     String? assignee,
+    TodoRecurrence? recurrence,
   }) {
     return Todo(
       id: id,
@@ -124,6 +150,7 @@ class Todo {
       note: note ?? this.note,
       completed: completed ?? this.completed,
       priority: priority ?? this.priority,
+      recurrence: recurrence ?? this.recurrence,
       startAt: clearStartAt ? null : (startAt ?? this.startAt),
       dueAt: clearDueAt ? null : (dueAt ?? this.dueAt),
       completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
@@ -162,6 +189,35 @@ class TodoListResponse {
       totalPages: meta['totalPages'] as int,
     );
   }
+}
+
+class TodoStats {
+  final int total;
+  final int completed;
+  final int active;
+  final int overdue;
+  final int dueToday;
+
+  const TodoStats({
+    required this.total,
+    required this.completed,
+    required this.active,
+    required this.overdue,
+    required this.dueToday,
+  });
+
+  factory TodoStats.fromJson(Map<String, dynamic> json) {
+    return TodoStats(
+      total: (json['total'] as num).toInt(),
+      completed: (json['completed'] as num).toInt(),
+      active: (json['active'] as num).toInt(),
+      overdue: (json['overdue'] as num).toInt(),
+      dueToday: (json['dueToday'] as num).toInt(),
+    );
+  }
+
+  int get completionPercent =>
+      total == 0 ? 0 : ((completed / total) * 100).round();
 }
 
 class ApiError {

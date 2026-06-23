@@ -27,7 +27,8 @@ class _TodoAppState extends State<TodoApp> {
     // After a change in one view is persisted, immediately refresh the other
     // (silently) so it's already up to date regardless of when — or how fast —
     // the user switches tabs. The tab-switch refresh below is a backup.
-    _todoNotifier.onMutated = () => _calendarNotifier.loadCalendar(silent: true);
+    _todoNotifier.onMutated = () =>
+        _calendarNotifier.loadCalendar(silent: true);
     _calendarNotifier.onMutated = () => _todoNotifier.loadTodos(silent: true);
   }
 
@@ -54,7 +55,9 @@ class _TodoAppState extends State<TodoApp> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB));
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF2563EB),
+    );
     return MaterialApp(
       title: 'Todo List',
       debugShowCheckedModeBanner: false,
@@ -88,10 +91,7 @@ class _TodoAppState extends State<TodoApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('ko', 'KR'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
       home: Scaffold(
         body: IndexedStack(
           index: _selectedTab,

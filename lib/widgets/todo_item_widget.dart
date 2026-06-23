@@ -130,7 +130,9 @@ class TodoItemWidget extends StatelessWidget {
                               todo.note!,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant
-                                    .withValues(alpha: todo.completed ? 0.5 : 1.0),
+                                    .withValues(
+                                      alpha: todo.completed ? 0.5 : 1.0,
+                                    ),
                                 decoration: todo.completed
                                     ? TextDecoration.lineThrough
                                     : null,
@@ -222,6 +224,27 @@ class TodoItemWidget extends StatelessWidget {
                             ],
                           ),
                         ],
+                        if (todo.recurrence != TodoRecurrence.none) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.repeat,
+                                size: 13,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                todo.recurrence.shortLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (todo.assignee != null &&
                             todo.assignee!.isNotEmpty) ...[
                           const SizedBox(height: 4),
@@ -268,7 +291,8 @@ class TodoItemWidget extends StatelessWidget {
                                       tag,
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: theme.colorScheme
+                                        color: theme
+                                            .colorScheme
                                             .onPrimaryContainer,
                                         fontWeight: FontWeight.w500,
                                       ),

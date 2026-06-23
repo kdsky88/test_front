@@ -15,6 +15,7 @@ class TodoNotifier extends ChangeNotifier {
   String? _assigneeFilter;
   String _sort = 'priority';
   bool _hideCompleted = false;
+  TodoStats? _stats;
   List<String> _assignees = [];
   int _page = 1;
   int _totalPages = 0;
@@ -43,6 +44,7 @@ class TodoNotifier extends ChangeNotifier {
   String? get assigneeFilter => _assigneeFilter;
   String get sort => _sort;
   bool get hideCompleted => _hideCompleted;
+  TodoStats? get stats => _stats;
   List<String> get assignees => _assignees;
   int get page => _page;
   int get totalPages => _totalPages;
@@ -69,9 +71,7 @@ class TodoNotifier extends ChangeNotifier {
   /// current data on failure — used for background refresh on tab switch.
   Future<void> loadTodos({bool initial = false, bool silent = false}) async {
     if (!silent) {
-      _listStatus = initial
-          ? ListStatus.initialLoading
-          : ListStatus.refreshing;
+      _listStatus = initial ? ListStatus.initialLoading : ListStatus.refreshing;
       _listError = null;
       notifyListeners();
     }
@@ -102,6 +102,7 @@ class TodoNotifier extends ChangeNotifier {
       _total = result.total;
       _listStatus = ListStatus.idle;
       notifyListeners();
+      refreshStats();
     } on ApiException catch (e) {
       if (seq != _listSeq) return;
       if (silent) return; // background refresh: keep existing data on failure
@@ -174,6 +175,15 @@ class TodoNotifier extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshStats() async {
+    try {
+      _stats = await TodoApi.getStats();
+      notifyListeners();
+    } catch (_) {
+      // 통계 로드 실패는 조용히 무시
+    }
+  }
+
   Future<bool> submitSearch(String keyword) async {
     final trimmed = keyword.trim();
     if (trimmed.length > 100) {
@@ -208,6 +218,7 @@ class TodoNotifier extends ChangeNotifier {
     String? note,
     String? startAt,
     String? dueAt,
+    String? recurrence,
     List<String> tags = const [],
   }) async {
     try {
@@ -218,6 +229,7 @@ class TodoNotifier extends ChangeNotifier {
         note: note?.isNotEmpty == true ? note : null,
         startAt: startAt,
         dueAt: dueAt,
+        recurrence: recurrence,
       );
       for (final tag in tags) {
         await TodoApi.addTag(id: created.id, tag: tag);
@@ -282,6 +294,7 @@ class TodoNotifier extends ChangeNotifier {
     String? note,
     String? startAt,
     String? dueAt,
+    String? recurrence,
     bool clearDescription = false,
     bool clearNote = false,
     bool clearStartAt = false,
@@ -296,6 +309,7 @@ class TodoNotifier extends ChangeNotifier {
         note: note,
         startAt: startAt,
         dueAt: dueAt,
+        recurrence: recurrence,
         clearDescription: clearDescription,
         clearNote: clearNote,
         clearStartAt: clearStartAt,
@@ -344,6 +358,7 @@ class TodoNotifier extends ChangeNotifier {
       }
       onMutated?.call();
       notifyListeners();
+      refreshStats();
     } on ApiException catch (e) {
       _processingIds.remove(id);
       _itemErrors[id] = e.error.message;
@@ -366,6 +381,7 @@ class TodoNotifier extends ChangeNotifier {
       await TodoApi.deleteTodo(id);
       _processingIds.remove(id);
       onMutated?.call();
+      refreshStats();
 
       final wasLastOnPage = _todos.length == 1 && _page > 1;
       _todos = _todos.where((t) => t.id != id).toList();
