@@ -128,7 +128,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildCalendarGrid(BuildContext context, CalendarNotifier n) {
     final firstDay = DateTime(n.year, n.month, 1);
     final daysInMonth = DateTime(n.year, n.month + 1, 0).day;
-    final offset = firstDay.weekday - 1; // Monday = 0, Sunday = 6
+    final offset = firstDay.weekday % 7; // Sunday = 0 (week starts on Sunday)
 
     final cells = <int>[
       ...List.filled(offset, 0),
@@ -138,7 +138,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       cells.add(0);
     }
 
-    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -390,23 +390,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             ),
                         ],
                       ),
-                      if (todo.description != null &&
-                          todo.description!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          todo.description!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: todo.completed ? 0.4 : 0.6,
-                            ),
-                            decoration: todo.completed
-                                ? TextDecoration.lineThrough
-                                : null,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
                       if (todo.note != null && todo.note!.isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Container(
@@ -432,6 +415,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
                             maxLines: 4,
                             overflow: TextOverflow.ellipsis,
                           ),
+                        ),
+                      ],
+                      if (todo.startAt != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.play_circle_outline,
+                              size: 14,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '시작 ${DateFormat('yyyy-MM-dd HH:mm').format(todo.startAt!.toLocal())}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                       if (todo.dueAt != null) ...[

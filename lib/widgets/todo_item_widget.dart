@@ -103,23 +103,6 @@ class TodoItemWidget extends StatelessWidget {
                               ),
                           ],
                         ),
-                        if (todo.description != null &&
-                            todo.description!.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            todo.description!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: todo.completed ? 0.4 : 0.6,
-                              ),
-                              decoration: todo.completed
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                         if (todo.note != null && todo.note!.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Container(
@@ -145,6 +128,30 @@ class TodoItemWidget extends StatelessWidget {
                               maxLines: 4,
                               overflow: TextOverflow.ellipsis,
                             ),
+                          ),
+                        ],
+                        if (todo.startAt != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.play_circle_outline,
+                                size: 14,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '시작 ${DateFormat('yyyy-MM-dd HH:mm').format(todo.startAt!.toLocal())}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                         if (todo.dueAt != null) ...[

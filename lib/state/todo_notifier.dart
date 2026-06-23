@@ -186,6 +186,7 @@ class TodoNotifier extends ChangeNotifier {
     required TodoPriority priority,
     String? description,
     String? note,
+    String? startAt,
     String? dueAt,
     List<String> tags = const [],
   }) async {
@@ -195,6 +196,7 @@ class TodoNotifier extends ChangeNotifier {
         priority: priority,
         description: description?.isNotEmpty == true ? description : null,
         note: note?.isNotEmpty == true ? note : null,
+        startAt: startAt,
         dueAt: dueAt,
       );
       for (final tag in tags) {
@@ -258,9 +260,11 @@ class TodoNotifier extends ChangeNotifier {
     required TodoPriority priority,
     String? description,
     String? note,
+    String? startAt,
     String? dueAt,
     bool clearDescription = false,
     bool clearNote = false,
+    bool clearStartAt = false,
     bool clearDueAt = false,
   }) async {
     try {
@@ -270,9 +274,11 @@ class TodoNotifier extends ChangeNotifier {
         priority: priority,
         description: description,
         note: note,
+        startAt: startAt,
         dueAt: dueAt,
         clearDescription: clearDescription,
         clearNote: clearNote,
+        clearStartAt: clearStartAt,
         clearDueAt: clearDueAt,
       );
       onMutated?.call();
