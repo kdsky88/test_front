@@ -194,7 +194,19 @@ class _TodoListScreenState extends State<TodoListScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          _buildSortDropdown(context, n),
+          Row(
+            children: [
+              _buildSortDropdown(context, n),
+              const Spacer(),
+              FilterChip(
+                label: const Text('완료 숨기기', style: TextStyle(fontSize: 12)),
+                selected: n.hideCompleted,
+                onSelected: (value) => n.setHideCompleted(value),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
+          ),
           if (n.assignees.isNotEmpty) ...[
             const SizedBox(height: 8),
             _buildAssigneeDropdown(context, n),
@@ -207,6 +219,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
   Widget _buildSortDropdown(BuildContext context, TodoNotifier n) {
     final theme = Theme.of(context);
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.sort, size: 16, color: theme.colorScheme.onSurfaceVariant),
         const SizedBox(width: 6),

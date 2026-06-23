@@ -7,6 +7,10 @@ enum CalendarStatus { idle, loading, error }
 List<Todo> sortCalendarTodosByPriority(Iterable<Todo> todos) {
   final indexedTodos = todos.indexed.toList();
   indexedTodos.sort((a, b) {
+    // 완료 항목은 항상 아래로
+    final completedOrder =
+        (a.$2.completed ? 1 : 0).compareTo(b.$2.completed ? 1 : 0);
+    if (completedOrder != 0) return completedOrder;
     final priorityOrder = a.$2.priority.index.compareTo(b.$2.priority.index);
     return priorityOrder != 0 ? priorityOrder : a.$1.compareTo(b.$1);
   });

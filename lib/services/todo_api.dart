@@ -34,12 +34,14 @@ class TodoApi {
     String? tag,
     String? assignee,
     String sort = 'priority',
+    bool hideCompleted = false,
   }) async {
     final queryParameters = {
       'status': status,
       'page': '$page',
       'limit': '$limit',
       'sort': sort,
+      if (hideCompleted) 'hideCompleted': 'true',
       if (search != null && search.isNotEmpty) 'search': search,
       if (tag != null && tag.isNotEmpty) 'tag': tag,
       if (assignee != null && assignee.isNotEmpty) 'assignee': assignee,

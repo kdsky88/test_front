@@ -14,6 +14,7 @@ class TodoNotifier extends ChangeNotifier {
   String? _tagFilter;
   String? _assigneeFilter;
   String _sort = 'priority';
+  bool _hideCompleted = false;
   List<String> _assignees = [];
   int _page = 1;
   int _totalPages = 0;
@@ -41,6 +42,7 @@ class TodoNotifier extends ChangeNotifier {
   String? get tagFilter => _tagFilter;
   String? get assigneeFilter => _assigneeFilter;
   String get sort => _sort;
+  bool get hideCompleted => _hideCompleted;
   List<String> get assignees => _assignees;
   int get page => _page;
   int get totalPages => _totalPages;
@@ -84,6 +86,7 @@ class TodoNotifier extends ChangeNotifier {
         tag: _tagFilter,
         assignee: _assigneeFilter,
         sort: _sort,
+        hideCompleted: _hideCompleted,
       );
       if (seq != _listSeq) return; // stale response
 
@@ -151,6 +154,13 @@ class TodoNotifier extends ChangeNotifier {
   Future<void> setSort(String sort) async {
     if (_sort == sort) return;
     _sort = sort;
+    _page = 1;
+    await loadTodos();
+  }
+
+  Future<void> setHideCompleted(bool value) async {
+    if (_hideCompleted == value) return;
+    _hideCompleted = value;
     _page = 1;
     await loadTodos();
   }
