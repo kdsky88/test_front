@@ -46,15 +46,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
           body: Column(
             children: [
               _buildMonthHeader(context, n),
-              if (n.status == CalendarStatus.loading)
-                const LinearProgressIndicator()
-              else if (n.status == CalendarStatus.error)
-                _buildCalendarError(context, n)
-              else
-                _buildCalendarGrid(context, n),
-              const Divider(height: 1),
-              _buildSelectedDateLabel(context, n),
-              Expanded(child: _buildTodoList(context, n)),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      if (n.status == CalendarStatus.loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: LinearProgressIndicator(),
+                        )
+                      else if (n.status == CalendarStatus.error)
+                        _buildCalendarError(context, n)
+                      else
+                        _buildCalendarGrid(context, n),
+                      const Divider(height: 1),
+                      _buildSelectedDateLabel(context, n),
+                      _buildTodoList(context, n),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -130,6 +141,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   static const Color _sundayColor = Color(0xFFE5534B); // 일요일 빨강
   static const Color _saturdayColor = Color(0xFF9AA0A6); // 토요일 회색
+  static const int _maxLanes = 5; // 한 주에 표시할 막대 줄 수(고정 → 날짜 높이 통일)
+  static const double _laneHeight = 9; // 막대 한 줄 높이(얇게)
 
   Widget _buildCalendarGrid(BuildContext context, CalendarNotifier n) {
     final theme = Theme.of(context);
@@ -146,6 +159,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
 
     const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    final bars = _computeBars(n);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -174,22 +188,55 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
           const SizedBox(height: 4),
           for (int row = 0; row < cells.length ~/ 7; row++)
-            Row(
-              children: [
-                for (int col = 0; col < 7; col++)
-                  Expanded(
-                    child: _buildDayCell(context, n, cells[row * 7 + col]),
-                  ),
-              ],
-            ),
+            _buildWeekRow(context, n, cells, row, bars),
           const SizedBox(height: 4),
         ],
       ),
     );
   }
 
-  Widget _buildDayCell(BuildContext context, CalendarNotifier n, int day) {
-    if (day == 0) return const SizedBox(height: 48);
+  Widget _buildWeekRow(
+    BuildContext context,
+    CalendarNotifier n,
+    List<int> cells,
+    int row,
+    List<_CalBar> bars,
+  ) {
+    final weekDays = [for (int c = 0; c < 7; c++) cells[row * 7 + c]];
+    final nonZero = weekDays.where((d) => d > 0).toList();
+    final minDay = nonZero.isEmpty ? 0 : nonZero.first;
+    final maxDay = nonZero.isEmpty ? 0 : nonZero.last;
+    final weekBars = bars
+        .where((b) => b.startDay <= maxDay && b.endDay >= minDay)
+        .toList();
+    return Column(
+      children: [
+        Row(
+          children: [
+            for (int c = 0; c < 7; c++)
+              Expanded(child: _buildDayNumber(context, n, weekDays[c])),
+          ],
+        ),
+        for (int lane = 0; lane < _maxLanes; lane++)
+          SizedBox(
+            height: _laneHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (int c = 0; c < 7; c++)
+                  Expanded(
+                    child: _buildBarCell(context, weekDays, weekBars, lane, c),
+                  ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+
+  Widget _buildDayNumber(BuildContext context, CalendarNotifier n, int day) {
+    if (day == 0) return const SizedBox(height: 30);
 
     final date = DateTime(n.year, n.month, day);
     final isSelected =
@@ -199,7 +246,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final now = DateTime.now();
     final isToday =
         now.year == n.year && now.month == n.month && now.day == day;
-    final hasTodos = n.hasTodos(date);
     final theme = Theme.of(context);
 
     final Color? dayColor;
@@ -217,52 +263,119 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return GestureDetector(
       onTap: () => n.selectDate(date),
+      behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        height: 48,
+        height: 30,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: isSelected ? theme.colorScheme.primary : null,
-                  shape: BoxShape.circle,
-                  border: isToday && !isSelected
-                      ? Border.all(color: theme.colorScheme.primary, width: 1.5)
-                      : null,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '$day',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isToday || isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: dayColor,
-                  ),
-                ),
+          child: Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: isSelected ? theme.colorScheme.primary : null,
+              shape: BoxShape.circle,
+              border: isToday && !isSelected
+                  ? Border.all(color: theme.colorScheme.primary, width: 1.5)
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isToday || isSelected
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                color: dayColor,
               ),
-              const SizedBox(height: 2),
-              hasTodos
-                  ? Container(
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Colors.white70
-                            : theme.colorScheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    )
-                  : const SizedBox(height: 4),
-            ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildBarCell(
+    BuildContext context,
+    List<int> weekDays,
+    List<_CalBar> weekBars,
+    int lane,
+    int col,
+  ) {
+    final day = weekDays[col];
+    if (day == 0) return const SizedBox.shrink();
+    _CalBar? bar;
+    for (final b in weekBars) {
+      if (b.lane == lane && b.startDay <= day && b.endDay >= day) {
+        bar = b;
+        break;
+      }
+    }
+    if (bar == null) return const SizedBox.shrink();
+
+    final isStart = day == bar.startDay;
+    final isEnd = day == bar.endDay;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isStart ? 1.5 : 0,
+        right: isEnd ? 1.5 : 0,
+        top: 1.5,
+        bottom: 1.5,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _barColor(bar.todo),
+          borderRadius: BorderRadius.horizontal(
+            left: Radius.circular(isStart ? 6 : 0),
+            right: Radius.circular(isEnd ? 6 : 0),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _barColor(Todo todo) {
+    if (todo.completed) return Colors.grey.shade400;
+    return switch (todo.priority) {
+      TodoPriority.high => Colors.red.shade400,
+      TodoPriority.medium => Colors.orange.shade400,
+      TodoPriority.low => Colors.blue.shade400,
+    };
+  }
+
+  List<_CalBar> _computeBars(CalendarNotifier n) {
+    final spans = <String, _CalBar>{};
+    n.calendarData.forEach((dateKey, todos) {
+      final day = int.parse(dateKey.substring(8, 10));
+      for (final t in todos) {
+        if (t.completed) continue; // 완료 항목은 막대로 표시하지 않음
+        final existing = spans[t.id];
+        if (existing == null) {
+          spans[t.id] = _CalBar(t, day, day, 0);
+        } else {
+          if (day < existing.startDay) existing.startDay = day;
+          if (day > existing.endDay) existing.endDay = day;
+        }
+      }
+    });
+    final list = spans.values.toList()
+      ..sort((a, b) {
+        final c = a.startDay.compareTo(b.startDay);
+        return c != 0 ? c : a.endDay.compareTo(b.endDay);
+      });
+    final laneEnd = <int>[];
+    for (final bar in list) {
+      var lane = 0;
+      while (lane < laneEnd.length && laneEnd[lane] >= bar.startDay) {
+        lane++;
+      }
+      if (lane == laneEnd.length) {
+        laneEnd.add(bar.endDay);
+      } else {
+        laneEnd[lane] = bar.endDay;
+      }
+      bar.lane = lane;
+    }
+    return list;
   }
 
   // ─── Selected date label ───────────────────────────────────────
@@ -306,42 +419,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildTodoList(BuildContext context, CalendarNotifier n) {
     final todos = n.selectedDateTodos;
     if (todos.isEmpty) {
-      return LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.event_available,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '등록된 할 일이 없습니다.',
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () => _openCreate(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('할 일 추가'),
-                  ),
-                ],
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.event_available, size: 48, color: Colors.grey),
+              const SizedBox(height: 12),
+              const Text(
+                '등록된 할 일이 없습니다.',
+                style: TextStyle(color: Colors.grey, fontSize: 15),
               ),
-            ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => _openCreate(context),
+                icon: const Icon(Icons.add),
+                label: const Text('할 일 추가'),
+              ),
+            ],
           ),
         ),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-      itemCount: todos.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (context, index) => _buildTodoItem(context, todos[index], n),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+      child: Column(
+        children: [
+          for (int i = 0; i < todos.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _buildTodoItem(context, todos[i], n),
+          ],
+        ],
+      ),
     );
   }
 
@@ -665,4 +775,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+}
+
+/// 달력 위 멀티데이 막대 하나(시작~마감일에 걸침). lane은 겹침 방지용 세로 줄.
+class _CalBar {
+  final Todo todo;
+  int startDay;
+  int endDay;
+  int lane;
+  _CalBar(this.todo, this.startDay, this.endDay, this.lane);
 }

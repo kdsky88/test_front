@@ -52,7 +52,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
         final n = widget.notifier;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Todo List'),
+            title: const Text('목록'),
             centerTitle: false,
             bottom: n.listStatus == ListStatus.refreshing
                 ? const PreferredSize(
@@ -86,6 +86,11 @@ class _TodoListScreenState extends State<TodoListScreen> {
 
   Widget _buildStatsCard(BuildContext context, TodoStats stats) {
     final theme = Theme.of(context);
+    final completedColor = Colors.green.shade400;
+    final overdueColor = theme.colorScheme.error;
+    final todayColor = Colors.orange.shade500;
+    final activeColor = theme.colorScheme.primary;
+
     Widget tile(String label, String value, Color color) {
       return Expanded(
         child: Column(
@@ -110,31 +115,96 @@ class _TodoListScreenState extends State<TodoListScreen> {
       );
     }
 
+    Widget legendDot(String label, Color color) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget seg(int count, Color color) => count <= 0
+        ? const SizedBox.shrink()
+        : Expanded(
+            flex: count,
+            child: ColoredBox(color: color),
+          );
+
+    final otherActive = stats.active - stats.overdue - stats.dueToday;
+    final safeOther = otherActive < 0 ? 0 : otherActive;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
         children: [
-          tile('전체', '${stats.total}', theme.colorScheme.onSurface),
-          tile('완료율', '${stats.completionPercent}%', theme.colorScheme.primary),
-          tile('미완료', '${stats.active}', theme.colorScheme.onSurface),
-          tile(
-            '지연',
-            '${stats.overdue}',
-            stats.overdue > 0
-                ? theme.colorScheme.error
-                : theme.colorScheme.onSurface,
+          Row(
+            children: [
+              tile('전체', '${stats.total}', theme.colorScheme.onSurface),
+              tile(
+                '완료율',
+                '${stats.completionPercent}%',
+                theme.colorScheme.primary,
+              ),
+              tile('미완료', '${stats.active}', theme.colorScheme.onSurface),
+              tile(
+                '지연',
+                '${stats.overdue}',
+                stats.overdue > 0 ? overdueColor : theme.colorScheme.onSurface,
+              ),
+              tile(
+                '오늘',
+                '${stats.dueToday}',
+                stats.dueToday > 0 ? todayColor : theme.colorScheme.onSurface,
+              ),
+            ],
           ),
-          tile(
-            '오늘',
-            '${stats.dueToday}',
-            stats.dueToday > 0
-                ? Colors.orange.shade700
-                : theme.colorScheme.onSurface,
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              height: 10,
+              width: double.infinity,
+              child: stats.total == 0
+                  ? ColoredBox(color: theme.colorScheme.surfaceContainerHighest)
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        seg(stats.completed, completedColor),
+                        seg(stats.overdue, overdueColor),
+                        seg(stats.dueToday, todayColor),
+                        seg(safeOther, activeColor),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [
+              legendDot('완료', completedColor),
+              legendDot('지연', overdueColor),
+              legendDot('오늘', todayColor),
+              legendDot('진행중', activeColor),
+            ],
           ),
         ],
       ),

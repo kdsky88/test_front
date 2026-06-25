@@ -50,6 +50,9 @@ class CalendarNotifier extends ChangeNotifier {
   List<Todo> get selectedDateTodos =>
       _calendarData[_dateKey(_selectedDate)] ?? [];
 
+  /// 날짜키(yyyy-MM-dd) → 그 날짜에 걸치는 할 일 목록 (멀티데이 막대 계산용).
+  Map<String, List<Todo>> get calendarData => _calendarData;
+
   bool hasTodos(DateTime date) =>
       (_calendarData[_dateKey(date)]?.isNotEmpty ?? false);
 
