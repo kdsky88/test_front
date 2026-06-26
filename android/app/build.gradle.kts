@@ -4,6 +4,47 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+import java.util.Base64
+import java.util.Properties
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+fun signingValue(name: String): String? =
+    (keystoreProperties[name] as String?) ?: System.getenv("ANDROID_${envKey(name)}")
+
+fun requiredSigningValue(name: String): String =
+    signingValue(name)
+        ?: error(
+            "Missing Android release signing value '$name'. " +
+                "Set it in android/key.properties or ANDROID_${envKey(name)}."
+        )
+
+fun envKey(name: String): String =
+    name.replace(Regex("([a-z])([A-Z])"), "$1_$2").uppercase()
+
+val isReleaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("Release", ignoreCase = true)
+}
+
+fun releaseApiBaseUrl(): String {
+    val defineArg = project.findProperty("dart-defines") as String?
+    if (defineArg == null) return ""
+    return defineArg
+        .split(",")
+        .mapNotNull { encoded: String ->
+            runCatching {
+                String(Base64.getDecoder().decode(encoded))
+            }.getOrNull()
+        }
+        .firstOrNull { decoded: String -> decoded.startsWith("API_BASE_URL=") }
+        ?.substringAfter("=")
+        ?: ""
+}
+
 android {
     namespace = "com.openclaw.todo_app"
     compileSdk = flutter.compileSdkVersion
@@ -25,11 +66,26 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = if (isReleaseBuildRequested) requiredSigningValue("keyAlias") else signingValue("keyAlias")
+            keyPassword = if (isReleaseBuildRequested) requiredSigningValue("keyPassword") else signingValue("keyPassword")
+            storeFile = file(
+                if (isReleaseBuildRequested) requiredSigningValue("storeFile") else signingValue("storeFile") ?: "missing-release-keystore.jks"
+            )
+            storePassword = if (isReleaseBuildRequested) requiredSigningValue("storePassword") else signingValue("storePassword")
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (isReleaseBuildRequested) {
+                val apiBaseUrl = releaseApiBaseUrl()
+                if (!apiBaseUrl.startsWith("https://")) {
+                    error("Release builds require --dart-define=API_BASE_URL=https://...")
+                }
+            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

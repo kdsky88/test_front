@@ -1,15 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/todo.dart';
-
-const String _kApiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  // 백엔드(Spring) server.port=8080 에 정렬. dart-define API_BASE_URL 로 오버라이드 가능.
-  defaultValue: 'http://localhost:8080',
-);
+import 'api_config.dart';
+import 'auth_api.dart';
 
 class TodoApi {
-  static final String baseUrl = _kApiBaseUrl;
+  static const String baseUrl = apiBaseUrl;
 
   static Future<TodoStats> getStats() async {
     final response = await http.get(
@@ -217,9 +213,11 @@ class TodoApi {
     throw _parseError(response);
   }
 
-  static const Map<String, String> _headers = {
+  static Map<String, String> get _headers => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    if (AuthSession.accessToken case final token?)
+      'Authorization': 'Bearer $token',
   };
 
   static ApiException _parseError(http.Response response) {
