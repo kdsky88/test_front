@@ -210,6 +210,19 @@ class TodoNotifier extends ChangeNotifier {
 
   Future<void> retry() => loadTodos();
 
+  /// Undo a delete by re-creating the todo from its fields.
+  /// ponytail: recreates as a new active todo (new id, completed state dropped)
+  /// — fine for accidental-delete undo; switch to soft-delete if id must survive.
+  Future<String?> restoreTodo(Todo t) => createTodo(
+    title: t.title,
+    priority: t.priority,
+    note: t.note,
+    startAt: t.startAt?.toUtc().toIso8601String(),
+    dueAt: t.dueAt?.toUtc().toIso8601String(),
+    recurrence: t.recurrence.apiValue,
+    tags: t.tags,
+  );
+
   /// Returns null on success, error message on failure.
   Future<String?> createTodo({
     required String title,

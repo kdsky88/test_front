@@ -543,15 +543,30 @@ class _TodoListScreenState extends State<TodoListScreen> {
       );
     }
 
+    // ponytail: section headers only when sorted by priority; other sorts
+    // would contradict the grouping, so fall back to a flat list there.
+    final grouped = n.sort == 'priority';
     return RefreshIndicator(
       onRefresh: () => n.loadTodos(),
-      child: ListView.separated(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
         itemCount: todos.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          return TodoItemWidget(todo: todos[index], notifier: n);
+          final todo = todos[index];
+          final showHeader =
+              grouped &&
+              (index == 0 || todos[index - 1].priority != todo.priority);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showHeader) _PrioritySectionHeader(priority: todo.priority),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: TodoItemWidget(todo: todo, notifier: n),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -719,6 +734,37 @@ class _TagChipButton extends StatelessWidget {
             fontSize: 12,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PrioritySectionHeader extends StatelessWidget {
+  final TodoPriority priority;
+  const _PrioritySectionHeader({required this.priority});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = switch (priority) {
+      TodoPriority.high => Colors.red.shade400,
+      TodoPriority.medium => Colors.orange.shade500,
+      TodoPriority.low => Colors.blue.shade400,
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 8, 0, 8),
+      child: Row(
+        children: [
+          Container(width: 4, height: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            priority.label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ],
       ),
     );
   }

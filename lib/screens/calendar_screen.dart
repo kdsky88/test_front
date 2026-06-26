@@ -4,7 +4,6 @@ import '../models/todo.dart';
 import '../state/calendar_notifier.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_form_dialog.dart';
-import '../widgets/delete_dialog.dart';
 import '../widgets/priority_badge.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -766,12 +765,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
-  void _confirmDelete(BuildContext context, Todo todo) {
-    showDialog(
-      context: context,
-      builder: (_) => DeleteDialog(
-        todoTitle: todo.title,
-        onDelete: () => widget.calendarNotifier.deleteTodo(todo.id),
+  Future<void> _confirmDelete(BuildContext context, Todo todo) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await widget.calendarNotifier.deleteTodo(todo.id);
+    if (!ok) return;
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text("'${todo.title}' 삭제됨"),
+        action: SnackBarAction(
+          label: '실행취소',
+          // 복원은 목록/달력 공용 createTodo 경로(todoNotifier) 사용
+          onPressed: () => widget.todoNotifier.restoreTodo(todo),
+        ),
       ),
     );
   }

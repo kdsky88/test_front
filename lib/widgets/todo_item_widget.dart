@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 import 'todo_form_dialog.dart';
-import 'delete_dialog.dart';
 import 'priority_badge.dart';
 
 class TodoItemWidget extends StatelessWidget {
@@ -362,12 +361,19 @@ class TodoItemWidget extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => DeleteDialog(
-        todoTitle: todo.title,
-        onDelete: () => notifier.deleteTodo(todo.id),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final removed = todo;
+    final ok = await notifier.deleteTodo(removed.id);
+    if (!ok) return;
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text("'${removed.title}' 삭제됨"),
+        action: SnackBarAction(
+          label: '실행취소',
+          onPressed: () => notifier.restoreTodo(removed),
+        ),
       ),
     );
   }
