@@ -11,17 +11,32 @@ const String _kApiBaseUrl = String.fromEnvironment(
 class TodoApi {
   static final String baseUrl = _kApiBaseUrl;
 
+  static Future<TodoStats> getStats() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/todos/stats'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return TodoStats.fromJson(json['data'] as Map<String, dynamic>);
+    }
+    throw _parseError(response);
+  }
+
   static Future<List<String>> getAssignees() async {
     final uri = Uri.parse('$baseUrl/todos/assignees');
     final response = await http.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final data = json['data'] as List<dynamic>;
-      return data.map((e) {
-        if (e is String) return e;
-        if (e is Map<String, dynamic>) return e['name'] as String? ?? '';
-        return '';
-      }).where((s) => s.isNotEmpty).toList();
+      return data
+          .map((e) {
+            if (e is String) return e;
+            if (e is Map<String, dynamic>) return e['name'] as String? ?? '';
+            return '';
+          })
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
     throw _parseError(response);
   }
@@ -33,11 +48,15 @@ class TodoApi {
     String? search,
     String? tag,
     String? assignee,
+    String sort = 'priority',
+    bool hideCompleted = false,
   }) async {
     final queryParameters = {
       'status': status,
       'page': '$page',
       'limit': '$limit',
+      'sort': sort,
+      if (hideCompleted) 'hideCompleted': 'true',
       if (search != null && search.isNotEmpty) 'search': search,
       if (tag != null && tag.isNotEmpty) 'tag': tag,
       if (assignee != null && assignee.isNotEmpty) 'assignee': assignee,
@@ -59,7 +78,9 @@ class TodoApi {
     required TodoPriority priority,
     String? description,
     String? note,
+    String? startAt,
     String? dueAt,
+    String? recurrence,
   }) async {
     final body = <String, dynamic>{
       'title': title,
@@ -67,7 +88,9 @@ class TodoApi {
     };
     if (description != null) body['description'] = description;
     if (note != null) body['note'] = note;
+    if (startAt != null) body['startAt'] = startAt;
     if (dueAt != null) body['dueAt'] = dueAt;
+    if (recurrence != null) body['recurrence'] = recurrence;
 
     final response = await http.post(
       Uri.parse('$baseUrl/todos'),
@@ -86,11 +109,14 @@ class TodoApi {
     String? title,
     String? description,
     String? note,
+    String? startAt,
     String? dueAt,
     bool? completed,
     TodoPriority? priority,
+    String? recurrence,
     bool clearDescription = false,
     bool clearNote = false,
+    bool clearStartAt = false,
     bool clearDueAt = false,
   }) async {
     final body = <String, dynamic>{};
@@ -105,6 +131,11 @@ class TodoApi {
     } else if (note != null) {
       body['note'] = note;
     }
+    if (clearStartAt) {
+      body['startAt'] = null;
+    } else if (startAt != null) {
+      body['startAt'] = startAt;
+    }
     if (clearDueAt) {
       body['dueAt'] = null;
     } else if (dueAt != null) {
@@ -112,6 +143,7 @@ class TodoApi {
     }
     if (completed != null) body['completed'] = completed;
     if (priority != null) body['priority'] = priority.apiValue;
+    if (recurrence != null) body['recurrence'] = recurrence;
 
     final response = await http.patch(
       Uri.parse('$baseUrl/todos/$id'),
@@ -148,10 +180,7 @@ class TodoApi {
     throw _parseError(response);
   }
 
-  static Future<Todo> addTag({
-    required String id,
-    required String tag,
-  }) async {
+  static Future<Todo> addTag({required String id, required String tag}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/todos/$id/tags'),
       headers: _headers,

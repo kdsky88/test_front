@@ -13,6 +13,9 @@ class TodoNotifier extends ChangeNotifier {
   String? _searchError;
   String? _tagFilter;
   String? _assigneeFilter;
+  String _sort = 'priority';
+  bool _hideCompleted = false;
+  TodoStats? _stats;
   List<String> _assignees = [];
   int _page = 1;
   int _totalPages = 0;
@@ -29,12 +32,19 @@ class TodoNotifier extends ChangeNotifier {
   // Request sequencing: only apply result if sequence still matches
   int _listSeq = 0;
 
+  // Called after a successful server mutation so the app shell can refresh the
+  // other view immediately (after the change is persisted — avoids races).
+  void Function()? onMutated;
+
   List<Todo> get todos => _todos;
   String get filter => _filter;
   String get searchQuery => _searchQuery;
   String? get searchError => _searchError;
   String? get tagFilter => _tagFilter;
   String? get assigneeFilter => _assigneeFilter;
+  String get sort => _sort;
+  bool get hideCompleted => _hideCompleted;
+  TodoStats? get stats => _stats;
   List<String> get assignees => _assignees;
   int get page => _page;
   int get totalPages => _totalPages;
@@ -57,14 +67,14 @@ class TodoNotifier extends ChangeNotifier {
   bool get canGoPrev => _page > 1;
   bool get canGoNext => _page < _totalPages;
 
-  Future<void> loadTodos({bool initial = false}) async {
-    if (initial) {
-      _listStatus = ListStatus.initialLoading;
-    } else {
-      _listStatus = ListStatus.refreshing;
+  /// [silent] reloads without showing the refreshing state and keeps the
+  /// current data on failure — used for background refresh on tab switch.
+  Future<void> loadTodos({bool initial = false, bool silent = false}) async {
+    if (!silent) {
+      _listStatus = initial ? ListStatus.initialLoading : ListStatus.refreshing;
+      _listError = null;
+      notifyListeners();
     }
-    _listError = null;
-    notifyListeners();
 
     final seq = ++_listSeq;
     try {
@@ -75,13 +85,15 @@ class TodoNotifier extends ChangeNotifier {
         search: _searchQuery.isEmpty ? null : _searchQuery,
         tag: _tagFilter,
         assignee: _assigneeFilter,
+        sort: _sort,
+        hideCompleted: _hideCompleted,
       );
       if (seq != _listSeq) return; // stale response
 
       final lastValidPage = result.totalPages > 0 ? result.totalPages : 1;
       if (_page > lastValidPage || (result.data.isEmpty && _page > 1)) {
         _page = lastValidPage < _page ? lastValidPage : _page - 1;
-        await loadTodos();
+        await loadTodos(silent: silent);
         return;
       }
 
@@ -90,8 +102,10 @@ class TodoNotifier extends ChangeNotifier {
       _total = result.total;
       _listStatus = ListStatus.idle;
       notifyListeners();
+      refreshStats();
     } on ApiException catch (e) {
       if (seq != _listSeq) return;
+      if (silent) return; // background refresh: keep existing data on failure
       if (e.error.code == 'INVALID_FILTER') {
         _filter = 'all';
         _page = 1;
@@ -110,6 +124,7 @@ class TodoNotifier extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       if (seq != _listSeq) return;
+      if (silent) return; // background refresh: keep existing data on failure
       _listStatus = ListStatus.error;
       _listError = _dataErrorMessage(error);
       notifyListeners();
@@ -137,12 +152,35 @@ class TodoNotifier extends ChangeNotifier {
     await loadTodos();
   }
 
+  Future<void> setSort(String sort) async {
+    if (_sort == sort) return;
+    _sort = sort;
+    _page = 1;
+    await loadTodos();
+  }
+
+  Future<void> setHideCompleted(bool value) async {
+    if (_hideCompleted == value) return;
+    _hideCompleted = value;
+    _page = 1;
+    await loadTodos();
+  }
+
   Future<void> loadAssignees() async {
     try {
       _assignees = await TodoApi.getAssignees();
       notifyListeners();
     } catch (_) {
       // 담당자 목록 로드 실패 시 필터 없이 계속 진행
+    }
+  }
+
+  Future<void> refreshStats() async {
+    try {
+      _stats = await TodoApi.getStats();
+      notifyListeners();
+    } catch (_) {
+      // 통계 로드 실패는 조용히 무시
     }
   }
 
@@ -172,13 +210,28 @@ class TodoNotifier extends ChangeNotifier {
 
   Future<void> retry() => loadTodos();
 
+  /// Undo a delete by re-creating the todo from its fields.
+  /// ponytail: recreates as a new active todo (new id, completed state dropped)
+  /// — fine for accidental-delete undo; switch to soft-delete if id must survive.
+  Future<String?> restoreTodo(Todo t) => createTodo(
+    title: t.title,
+    priority: t.priority,
+    note: t.note,
+    startAt: t.startAt?.toUtc().toIso8601String(),
+    dueAt: t.dueAt?.toUtc().toIso8601String(),
+    recurrence: t.recurrence.apiValue,
+    tags: t.tags,
+  );
+
   /// Returns null on success, error message on failure.
   Future<String?> createTodo({
     required String title,
     required TodoPriority priority,
     String? description,
     String? note,
+    String? startAt,
     String? dueAt,
+    String? recurrence,
     List<String> tags = const [],
   }) async {
     try {
@@ -187,7 +240,9 @@ class TodoNotifier extends ChangeNotifier {
         priority: priority,
         description: description?.isNotEmpty == true ? description : null,
         note: note?.isNotEmpty == true ? note : null,
+        startAt: startAt,
         dueAt: dueAt,
+        recurrence: recurrence,
       );
       for (final tag in tags) {
         await TodoApi.addTag(id: created.id, tag: tag);
@@ -199,6 +254,7 @@ class TodoNotifier extends ChangeNotifier {
       _tagFilter = null;
       _assigneeFilter = null;
       _page = 1;
+      onMutated?.call();
       await loadTodos();
       return null;
     } on ApiException catch (e) {
@@ -249,9 +305,12 @@ class TodoNotifier extends ChangeNotifier {
     required TodoPriority priority,
     String? description,
     String? note,
+    String? startAt,
     String? dueAt,
+    String? recurrence,
     bool clearDescription = false,
     bool clearNote = false,
+    bool clearStartAt = false,
     bool clearDueAt = false,
   }) async {
     try {
@@ -261,15 +320,20 @@ class TodoNotifier extends ChangeNotifier {
         priority: priority,
         description: description,
         note: note,
+        startAt: startAt,
         dueAt: dueAt,
+        recurrence: recurrence,
         clearDescription: clearDescription,
         clearNote: clearNote,
+        clearStartAt: clearStartAt,
         clearDueAt: clearDueAt,
       );
+      onMutated?.call();
       await loadTodos();
       return (updated, null, null);
     } on ApiException catch (e) {
       if (e.error.code == 'TODO_NOT_FOUND') {
+        onMutated?.call();
         await loadTodos();
       }
       return (null, e, e.error.message);
@@ -305,7 +369,9 @@ class TodoNotifier extends ChangeNotifier {
           _todos = List.of(_todos)..[idx] = updated;
         }
       }
+      onMutated?.call();
       notifyListeners();
+      refreshStats();
     } on ApiException catch (e) {
       _processingIds.remove(id);
       _itemErrors[id] = e.error.message;
@@ -327,6 +393,8 @@ class TodoNotifier extends ChangeNotifier {
     try {
       await TodoApi.deleteTodo(id);
       _processingIds.remove(id);
+      onMutated?.call();
+      refreshStats();
 
       final wasLastOnPage = _todos.length == 1 && _page > 1;
       _todos = _todos.where((t) => t.id != id).toList();

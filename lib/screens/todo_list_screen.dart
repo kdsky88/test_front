@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_item_widget.dart';
 import '../widgets/todo_form_dialog.dart';
@@ -51,22 +52,26 @@ class _TodoListScreenState extends State<TodoListScreen> {
         final n = widget.notifier;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Todo List'),
+            title: const Text('목록'),
             centerTitle: false,
             bottom: n.listStatus == ListStatus.refreshing
                 ? const PreferredSize(
                     preferredSize: Size.fromHeight(2),
-                    child: LinearProgressIndicator(),
+                    child: LinearProgressIndicator(
+                      color: Colors.white,
+                      backgroundColor: Colors.white24,
+                    ),
                   )
                 : null,
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openCreate(context),
             icon: const Icon(Icons.add),
-            label: const Text('새 Todo'),
+            label: const Text('새 할 일'),
           ),
           body: Column(
             children: [
+              if (n.stats != null) _buildStatsCard(context, n.stats!),
               _buildSearchBar(context, n),
               _buildFilterBar(context, n),
               if (n.allTags.isNotEmpty) _buildTagFilterBar(context, n),
@@ -76,6 +81,133 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildStatsCard(BuildContext context, TodoStats stats) {
+    final theme = Theme.of(context);
+    final completedColor = Colors.green.shade400;
+    final overdueColor = theme.colorScheme.error;
+    final todayColor = Colors.orange.shade500;
+    final activeColor = theme.colorScheme.primary;
+
+    Widget tile(String label, String value, Color color) {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget legendDot(String label, Color color) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget seg(int count, Color color) => count <= 0
+        ? const SizedBox.shrink()
+        : Expanded(
+            flex: count,
+            child: ColoredBox(color: color),
+          );
+
+    final otherActive = stats.active - stats.overdue - stats.dueToday;
+    final safeOther = otherActive < 0 ? 0 : otherActive;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              tile('전체', '${stats.total}', theme.colorScheme.onSurface),
+              tile(
+                '완료율',
+                '${stats.completionPercent}%',
+                theme.colorScheme.primary,
+              ),
+              tile('미완료', '${stats.active}', theme.colorScheme.onSurface),
+              tile(
+                '지연',
+                '${stats.overdue}',
+                stats.overdue > 0 ? overdueColor : theme.colorScheme.onSurface,
+              ),
+              tile(
+                '오늘',
+                '${stats.dueToday}',
+                stats.dueToday > 0 ? todayColor : theme.colorScheme.onSurface,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              height: 10,
+              width: double.infinity,
+              child: stats.total == 0
+                  ? ColoredBox(color: theme.colorScheme.surfaceContainerHighest)
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        seg(stats.completed, completedColor),
+                        seg(stats.overdue, overdueColor),
+                        seg(stats.dueToday, todayColor),
+                        seg(safeOther, activeColor),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [
+              legendDot('완료', completedColor),
+              legendDot('지연', overdueColor),
+              legendDot('오늘', todayColor),
+              legendDot('진행중', activeColor),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -181,13 +313,25 @@ class _TodoListScreenState extends State<TodoListScreen> {
               const Spacer(),
               if (n.total > 0)
                 Text(
-                  n.searchQuery.isEmpty
-                      ? '총 ${n.total}개'
-                      : '검색 결과 ${n.total}개',
+                  n.searchQuery.isEmpty ? '총 ${n.total}개' : '검색 결과 ${n.total}개',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildSortDropdown(context, n),
+              const Spacer(),
+              FilterChip(
+                label: const Text('완료 숨기기', style: TextStyle(fontSize: 12)),
+                selected: n.hideCompleted,
+                onSelected: (value) => n.setHideCompleted(value),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ],
           ),
           if (n.assignees.isNotEmpty) ...[
@@ -196,6 +340,41 @@ class _TodoListScreenState extends State<TodoListScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildSortDropdown(BuildContext context, TodoNotifier n) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.sort, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Text(
+          '정렬',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(width: 8),
+        DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: n.sort,
+            isDense: true,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+            items: const [
+              DropdownMenuItem(value: 'priority', child: Text('우선순위순')),
+              DropdownMenuItem(value: 'dueAt', child: Text('마감일순')),
+              DropdownMenuItem(value: 'createdAt', child: Text('등록순')),
+            ],
+            onChanged: (value) {
+              if (value != null) n.setSort(value);
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -226,10 +405,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             items: [
               DropdownMenuItem<String?>(
                 value: null,
-                child: Text(
-                  '전체',
-                  style: theme.textTheme.bodySmall,
-                ),
+                child: Text('전체', style: theme.textTheme.bodySmall),
               ),
               ...n.assignees.map(
                 (a) => DropdownMenuItem<String?>(
@@ -367,15 +543,30 @@ class _TodoListScreenState extends State<TodoListScreen> {
       );
     }
 
+    // ponytail: section headers only when sorted by priority; other sorts
+    // would contradict the grouping, so fall back to a flat list there.
+    final grouped = n.sort == 'priority';
     return RefreshIndicator(
       onRefresh: () => n.loadTodos(),
-      child: ListView.separated(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
         itemCount: todos.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 4),
         itemBuilder: (context, index) {
-          return TodoItemWidget(todo: todos[index], notifier: n);
+          final todo = todos[index];
+          final showHeader =
+              grouped &&
+              (index == 0 || todos[index - 1].priority != todo.priority);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showHeader) _PrioritySectionHeader(priority: todo.priority),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: TodoItemWidget(todo: todo, notifier: n),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -543,6 +734,37 @@ class _TagChipButton extends StatelessWidget {
             fontSize: 12,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PrioritySectionHeader extends StatelessWidget {
+  final TodoPriority priority;
+  const _PrioritySectionHeader({required this.priority});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = switch (priority) {
+      TodoPriority.high => Colors.red.shade400,
+      TodoPriority.medium => Colors.orange.shade500,
+      TodoPriority.low => Colors.blue.shade400,
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 8, 0, 8),
+      child: Row(
+        children: [
+          Container(width: 4, height: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            priority.label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ],
       ),
     );
   }

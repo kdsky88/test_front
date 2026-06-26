@@ -4,6 +4,8 @@ import 'package:test_front/main.dart';
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const TodoApp());
-    expect(find.text('Todo List'), findsOneWidget);
+    // App opens on the calendar tab; both tabs exist in the bottom nav.
+    expect(find.text('달력'), findsWidgets); // AppBar title + nav label
+    expect(find.text('목록'), findsOneWidget); // nav label
   });
 }

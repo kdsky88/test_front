@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 import 'todo_form_dialog.dart';
-import 'delete_dialog.dart';
 import 'priority_badge.dart';
 
 class TodoItemWidget extends StatelessWidget {
@@ -18,23 +17,33 @@ class TodoItemWidget extends StatelessWidget {
     final isProcessing = notifier.isProcessing(todo.id);
     final itemError = notifier.itemError(todo.id);
     final overdue = todo.isOverdue;
+    final dueToday = todo.isDueToday;
     final dueSoon = todo.isDueSoon;
+    final dueRed = overdue || dueToday; // 당일/경과 → 빨강, 하루 전 → 주황
+    final dueAccent = dueRed
+        ? theme.colorScheme.error
+        : (dueSoon
+              ? Colors.orange.shade500
+              : theme.colorScheme.onSurface.withValues(alpha: 0.5));
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Card(
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: dueRed
+              ? BorderSide(color: theme.colorScheme.error, width: 1.5)
+              : (dueSoon
+                    ? BorderSide(color: Colors.orange.shade500, width: 1.5)
+                    : BorderSide(color: theme.colorScheme.outlineVariant)),
+        ),
         color: todo.completed
             ? theme.colorScheme.surfaceContainerLow
-            : (overdue
-                  ? theme.colorScheme.errorContainer.withValues(alpha: 0.15)
-                  : (dueSoon
-                        ? Colors.orange.withValues(alpha: 0.08)
-                        : theme.colorScheme.surface)),
+            : theme.colorScheme.surface,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -103,23 +112,6 @@ class TodoItemWidget extends StatelessWidget {
                               ),
                           ],
                         ),
-                        if (todo.description != null &&
-                            todo.description!.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            todo.description!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: todo.completed ? 0.4 : 0.6,
-                              ),
-                              decoration: todo.completed
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                         if (todo.note != null && todo.note!.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Container(
@@ -137,7 +129,9 @@ class TodoItemWidget extends StatelessWidget {
                               todo.note!,
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant
-                                    .withValues(alpha: todo.completed ? 0.5 : 1.0),
+                                    .withValues(
+                                      alpha: todo.completed ? 0.5 : 1.0,
+                                    ),
                                 decoration: todo.completed
                                     ? TextDecoration.lineThrough
                                     : null,
@@ -147,6 +141,30 @@ class TodoItemWidget extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (todo.startAt != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.play_circle_outline,
+                                size: 14,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '시작 ${DateFormat('yyyy-MM-dd HH:mm').format(todo.startAt!.toLocal())}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (todo.dueAt != null) ...[
                           const SizedBox(height: 4),
                           Row(
@@ -154,31 +172,19 @@ class TodoItemWidget extends StatelessWidget {
                               Icon(
                                 overdue
                                     ? Icons.alarm_off
-                                    : (dueSoon
+                                    : ((dueToday || dueSoon)
                                           ? Icons.alarm
                                           : Icons.schedule),
                                 size: 14,
-                                color: overdue
-                                    ? theme.colorScheme.error
-                                    : (dueSoon
-                                          ? Colors.orange.shade700
-                                          : theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.5)),
+                                color: dueAccent,
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                DateFormat(
-                                  'yyyy-MM-dd HH:mm',
-                                ).format(todo.dueAt!.toLocal()),
+                                '마감 ${DateFormat('yyyy-MM-dd HH:mm').format(todo.dueAt!.toLocal())}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: overdue
-                                      ? theme.colorScheme.error
-                                      : (dueSoon
-                                            ? Colors.orange.shade700
-                                            : theme.colorScheme.onSurface
-                                                  .withValues(alpha: 0.5)),
-                                  fontWeight: (overdue || dueSoon)
+                                  color: dueAccent,
+                                  fontWeight: (dueRed || dueSoon)
                                       ? FontWeight.w600
                                       : null,
                                 ),
@@ -193,17 +199,48 @@ class TodoItemWidget extends StatelessWidget {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
+                              ] else if (dueToday) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '오늘 마감',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: theme.colorScheme.error,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ] else if (dueSoon) ...[
                                 const SizedBox(width: 4),
                                 Text(
                                   '임박',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.orange.shade700,
+                                    color: Colors.orange.shade500,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
+                            ],
+                          ),
+                        ],
+                        if (todo.recurrence != TodoRecurrence.none) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.repeat,
+                                size: 13,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                todo.recurrence.shortLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -253,7 +290,8 @@ class TodoItemWidget extends StatelessWidget {
                                       tag,
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: theme.colorScheme
+                                        color: theme
+                                            .colorScheme
                                             .onPrimaryContainer,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -323,12 +361,19 @@ class TodoItemWidget extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => DeleteDialog(
-        todoTitle: todo.title,
-        onDelete: () => notifier.deleteTodo(todo.id),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final removed = todo;
+    final ok = await notifier.deleteTodo(removed.id);
+    if (!ok) return;
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text("'${removed.title}' 삭제됨"),
+        action: SnackBarAction(
+          label: '실행취소',
+          onPressed: () => notifier.restoreTodo(removed),
+        ),
       ),
     );
   }
