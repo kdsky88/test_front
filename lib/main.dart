@@ -6,7 +6,9 @@ import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/auth_api.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AuthSession.load(); // 저장된 토큰 복원 후 시작
   runApp(const TodoApp());
 }
 

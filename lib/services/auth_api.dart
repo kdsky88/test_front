@@ -1,21 +1,46 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
 
 class AuthSession {
   static String? accessToken;
   static String? refreshToken;
 
+  static const _kAccess = 'auth_access_token';
+  static const _kRefresh = 'auth_refresh_token';
+
   static bool get isAuthenticated => accessToken != null;
+
+  /// 앱 시작 시 저장된 토큰을 메모리로 복원 (main()에서 await).
+  static Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    accessToken = prefs.getString(_kAccess);
+    refreshToken = prefs.getString(_kRefresh);
+  }
 
   static void update(TokenResponse token) {
     accessToken = token.accessToken;
     refreshToken = token.refreshToken;
+    _persist(); // 메모리는 즉시, 저장은 비동기(앱 동작 막지 않음)
   }
 
   static void clear() {
     accessToken = null;
     refreshToken = null;
+    _persist();
+  }
+
+  static Future<void> _persist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final access = accessToken;
+    final refresh = refreshToken;
+    await (access == null
+        ? prefs.remove(_kAccess)
+        : prefs.setString(_kAccess, access));
+    await (refresh == null
+        ? prefs.remove(_kRefresh)
+        : prefs.setString(_kRefresh, refresh));
   }
 }
 
