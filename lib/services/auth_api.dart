@@ -68,7 +68,7 @@ class AuthApi {
     String path,
     Map<String, String> body,
   ) async {
-    final response = await http.post(
+    final response = await apiClient.post(
       Uri.parse('$apiBaseUrl$path'),
       headers: const {
         'Content-Type': 'application/json',
