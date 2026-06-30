@@ -70,6 +70,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             label: const Text('새 할 일'),
           ),
           body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (n.stats != null) _buildStatsCard(context, n.stats!),
               _buildSearchBar(context, n),
