@@ -224,55 +224,45 @@ class _TodoListScreenState extends State<TodoListScreen> {
           bottom: BorderSide(color: Theme.of(context).dividerColor),
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final field = TextField(
-            controller: _searchCtrl,
-            enabled: !isBusy,
-            maxLength: 110,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _submitSearch(n),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchCtrl.text.isNotEmpty
-                  ? IconButton(
-                      tooltip: '검색어 지우기',
-                      onPressed: isBusy ? null : () => _clearSearch(n),
-                      icon: const Icon(Icons.close),
-                    )
-                  : null,
-              labelText: '제목 검색',
-              hintText: '검색어를 입력하세요',
-              errorText: n.searchError,
-              counterText: '',
-              border: const OutlineInputBorder(),
-              isDense: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              enabled: !isBusy,
+              maxLength: 110,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _submitSearch(n),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        tooltip: '검색어 지우기',
+                        onPressed: isBusy ? null : () => _clearSearch(n),
+                        icon: const Icon(Icons.close),
+                      )
+                    : null,
+                labelText: '제목 검색',
+                hintText: '검색어를 입력하세요',
+                errorText: n.searchError,
+                counterText: '',
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
             ),
-            onChanged: (_) => setState(() {}),
-          );
-
-          final button = FilledButton.icon(
-            onPressed: isBusy ? null : () => _submitSearch(n),
-            icon: const Icon(Icons.search),
-            label: const Text('검색'),
-          );
-
-          if (constraints.maxWidth < 420) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [field, const SizedBox(height: 8), button],
-            );
-          }
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: field),
-              const SizedBox(width: 8),
-              SizedBox(height: 48, child: button),
-            ],
-          );
-        },
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: isBusy ? null : () => _submitSearch(n),
+              icon: const Icon(Icons.search),
+              label: const Text('검색'),
+            ),
+          ),
+        ],
       ),
     );
   }
