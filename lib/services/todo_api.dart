@@ -8,7 +8,7 @@ class TodoApi {
   static const String baseUrl = apiBaseUrl;
 
   static Future<TodoStats> getStats() async {
-    final response = await http.get(
+    final response = await apiClient.get(
       Uri.parse('$baseUrl/todos/stats'),
       headers: _headers,
     );
@@ -21,7 +21,7 @@ class TodoApi {
 
   static Future<List<String>> getAssignees() async {
     final uri = Uri.parse('$baseUrl/todos/assignees');
-    final response = await http.get(uri, headers: _headers);
+    final response = await apiClient.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final data = json['data'] as List<dynamic>;
@@ -60,7 +60,7 @@ class TodoApi {
     final uri = Uri.parse(
       '$baseUrl/todos',
     ).replace(queryParameters: queryParameters);
-    final response = await http.get(uri, headers: _headers);
+    final response = await apiClient.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       return TodoListResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>,
@@ -88,7 +88,7 @@ class TodoApi {
     if (dueAt != null) body['dueAt'] = dueAt;
     if (recurrence != null) body['recurrence'] = recurrence;
 
-    final response = await http.post(
+    final response = await apiClient.post(
       Uri.parse('$baseUrl/todos'),
       headers: _headers,
       body: jsonEncode(body),
@@ -141,7 +141,7 @@ class TodoApi {
     if (priority != null) body['priority'] = priority.apiValue;
     if (recurrence != null) body['recurrence'] = recurrence;
 
-    final response = await http.patch(
+    final response = await apiClient.patch(
       Uri.parse('$baseUrl/todos/$id'),
       headers: _headers,
       body: jsonEncode(body),
@@ -160,7 +160,7 @@ class TodoApi {
     final uri = Uri.parse(
       '$baseUrl/todos/calendar',
     ).replace(queryParameters: {'year': '$year', 'month': '$month'});
-    final response = await http.get(uri, headers: _headers);
+    final response = await apiClient.get(uri, headers: _headers);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final data = json['data'] as Map<String, dynamic>;
@@ -177,7 +177,7 @@ class TodoApi {
   }
 
   static Future<Todo> addTag({required String id, required String tag}) async {
-    final response = await http.post(
+    final response = await apiClient.post(
       Uri.parse('$baseUrl/todos/$id/tags'),
       headers: _headers,
       body: jsonEncode({'tag': tag}),
@@ -196,7 +196,7 @@ class TodoApi {
     final uri = Uri.parse(
       '$baseUrl/todos/$id/tags',
     ).replace(queryParameters: {'tag': tag});
-    final response = await http.delete(uri, headers: _headers);
+    final response = await apiClient.delete(uri, headers: _headers);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return Todo.fromJson(json['data'] as Map<String, dynamic>);
@@ -205,7 +205,7 @@ class TodoApi {
   }
 
   static Future<void> deleteTodo(String id) async {
-    final response = await http.delete(
+    final response = await apiClient.delete(
       Uri.parse('$baseUrl/todos/$id'),
       headers: _headers,
     );
