@@ -9,11 +9,13 @@ import '../widgets/priority_badge.dart';
 class CalendarScreen extends StatefulWidget {
   final CalendarNotifier calendarNotifier;
   final TodoNotifier todoNotifier;
+  final VoidCallback onLogout;
 
   const CalendarScreen({
     super.key,
     required this.calendarNotifier,
     required this.todoNotifier,
+    required this.onLogout,
   });
 
   @override
@@ -36,7 +38,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
       builder: (context, _) {
         final n = widget.calendarNotifier;
         return Scaffold(
-          appBar: AppBar(title: const Text('달력'), centerTitle: false),
+          appBar: AppBar(
+            title: const Text('달력'),
+            centerTitle: false,
+            actions: [
+              IconButton(
+                tooltip: '로그아웃',
+                onPressed: widget.onLogout,
+                icon: const Icon(Icons.logout),
+              ),
+            ],
+          ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openCreate(context),
             icon: const Icon(Icons.add),
