@@ -129,16 +129,6 @@ class _TodoAppState extends State<TodoApp> {
       supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
       home: _isAuthenticated
           ? Scaffold(
-              appBar: AppBar(
-                title: const Text('할 일'),
-                actions: [
-                  IconButton(
-                    tooltip: '로그아웃',
-                    onPressed: _logout,
-                    icon: const Icon(Icons.logout),
-                  ),
-                ],
-              ),
               body: IndexedStack(
                 index: _selectedTab,
                 children: [
@@ -149,21 +139,42 @@ class _TodoAppState extends State<TodoApp> {
                   TodoListScreen(notifier: _todoNotifier),
                 ],
               ),
-              bottomNavigationBar: BottomNavigationBar(
-                currentIndex: _selectedTab,
-                onTap: _onTabSelected,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.calendar_month_outlined),
-                    activeIcon: Icon(Icons.calendar_month),
-                    label: '달력',
+              bottomNavigationBar: Material(
+                elevation: 8,
+                color: Theme.of(context).colorScheme.surface,
+                child: SafeArea(
+                  top: false,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: BottomNavigationBar(
+                          currentIndex: _selectedTab,
+                          onTap: _onTabSelected,
+                          elevation: 0,
+                          backgroundColor: Colors.transparent,
+                          items: const [
+                            BottomNavigationBarItem(
+                              icon: Icon(Icons.calendar_month_outlined),
+                              activeIcon: Icon(Icons.calendar_month),
+                              label: '달력',
+                            ),
+                            BottomNavigationBarItem(
+                              icon: Icon(Icons.list_alt_outlined),
+                              activeIcon: Icon(Icons.list_alt),
+                              label: '목록',
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '로그아웃',
+                        onPressed: _logout,
+                        icon: const Icon(Icons.logout),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.list_alt_outlined),
-                    activeIcon: Icon(Icons.list_alt),
-                    label: '목록',
-                  ),
-                ],
+                ),
               ),
             )
           : AuthScreen(onAuthenticated: _onAuthenticated),
