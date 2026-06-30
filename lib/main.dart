@@ -135,46 +135,29 @@ class _TodoAppState extends State<TodoApp> {
                   CalendarScreen(
                     calendarNotifier: _calendarNotifier,
                     todoNotifier: _todoNotifier,
+                    onLogout: _logout,
                   ),
-                  TodoListScreen(notifier: _todoNotifier),
+                  TodoListScreen(
+                    notifier: _todoNotifier,
+                    onLogout: _logout,
+                  ),
                 ],
               ),
-              bottomNavigationBar: Material(
-                elevation: 8,
-                color: Theme.of(context).colorScheme.surface,
-                child: SafeArea(
-                  top: false,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: BottomNavigationBar(
-                          currentIndex: _selectedTab,
-                          onTap: _onTabSelected,
-                          elevation: 0,
-                          backgroundColor: Colors.transparent,
-                          items: const [
-                            BottomNavigationBarItem(
-                              icon: Icon(Icons.calendar_month_outlined),
-                              activeIcon: Icon(Icons.calendar_month),
-                              label: '달력',
-                            ),
-                            BottomNavigationBarItem(
-                              icon: Icon(Icons.list_alt_outlined),
-                              activeIcon: Icon(Icons.list_alt),
-                              label: '목록',
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: '로그아웃',
-                        onPressed: _logout,
-                        icon: const Icon(Icons.logout),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
+              bottomNavigationBar: BottomNavigationBar(
+                currentIndex: _selectedTab,
+                onTap: _onTabSelected,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.calendar_month_outlined),
+                    activeIcon: Icon(Icons.calendar_month),
+                    label: '달력',
                   ),
-                ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.list_alt_outlined),
+                    activeIcon: Icon(Icons.list_alt),
+                    label: '목록',
+                  ),
+                ],
               ),
             )
           : AuthScreen(onAuthenticated: _onAuthenticated),

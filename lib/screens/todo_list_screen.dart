@@ -6,8 +6,13 @@ import '../widgets/todo_form_dialog.dart';
 
 class TodoListScreen extends StatefulWidget {
   final TodoNotifier notifier;
+  final VoidCallback onLogout;
 
-  const TodoListScreen({super.key, required this.notifier});
+  const TodoListScreen({
+    super.key,
+    required this.notifier,
+    required this.onLogout,
+  });
 
   @override
   State<TodoListScreen> createState() => _TodoListScreenState();
@@ -54,6 +59,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
           appBar: AppBar(
             title: const Text('목록'),
             centerTitle: false,
+            actions: [
+              IconButton(
+                tooltip: '로그아웃',
+                onPressed: widget.onLogout,
+                icon: const Icon(Icons.logout),
+              ),
+            ],
             bottom: n.listStatus == ListStatus.refreshing
                 ? const PreferredSize(
                     preferredSize: Size.fromHeight(2),
