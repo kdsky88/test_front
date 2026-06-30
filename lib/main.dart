@@ -34,6 +34,15 @@ class _TodoAppState extends State<TodoApp> {
     _todoNotifier.onMutated = () =>
         _calendarNotifier.loadCalendar(silent: true);
     _calendarNotifier.onMutated = () => _todoNotifier.loadTodos(silent: true);
+    // refresh까지 실패(장기 미사용 등)하면 로그인 화면으로 복귀.
+    AuthSession.onExpired = () {
+      if (mounted && _isAuthenticated) {
+        setState(() {
+          _isAuthenticated = false;
+          _selectedTab = 0;
+        });
+      }
+    };
   }
 
   void _onTabSelected(int index) {

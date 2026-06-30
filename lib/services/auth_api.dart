@@ -10,7 +10,33 @@ class AuthSession {
   static const _kAccess = 'auth_access_token';
   static const _kRefresh = 'auth_refresh_token';
 
+  /// refresh까지 실패(=장기 미사용/무효)했을 때 호출 → 앱이 로그인 화면으로.
+  static void Function()? onExpired;
+
   static bool get isAuthenticated => accessToken != null;
+
+  // 동시 401에 대해 refresh를 1회만 수행(토큰 회전 경쟁 방지).
+  static Future<bool>? _refreshInFlight;
+
+  /// 401 발생 시: 저장된 refresh 토큰으로 새 토큰 발급. 성공 true.
+  /// 동시 호출은 같은 요청을 공유. 실패하면 세션을 비움.
+  static Future<bool> tryRefresh() {
+    return _refreshInFlight ??= _refreshOnce().whenComplete(() {
+      _refreshInFlight = null;
+    });
+  }
+
+  static Future<bool> _refreshOnce() async {
+    final rt = refreshToken;
+    if (rt == null) return false;
+    try {
+      update(await AuthApi.refresh(rt));
+      return true;
+    } catch (_) {
+      clear();
+      return false;
+    }
+  }
 
   /// 앱 시작 시 저장된 토큰을 메모리로 복원 (main()에서 await).
   static Future<void> load() async {
@@ -62,6 +88,21 @@ class AuthApi {
       'email': email,
       'password': password,
     });
+  }
+
+  /// refresh 토큰으로 새 access/refresh 발급. apiClient(자동 refresh 래퍼)가 아닌
+  /// 순수 http로 호출해 401→refresh 무한루프를 방지.
+  static Future<TokenResponse> refresh(String refreshToken) async {
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/api/auth/refresh'),
+      headers: {'Authorization': 'Bearer $refreshToken'},
+    );
+    if (response.statusCode == 200) {
+      return TokenResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw AuthException(_parseErrorMessage(response));
   }
 
   static Future<TokenResponse> _postAuth(
