@@ -52,8 +52,16 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _noteCtrl = TextEditingController(text: widget.todo?.note ?? '');
     _tagCtrl = TextEditingController();
-    _startAt = widget.todo?.startAt;
-    _dueAt = widget.todo?.dueAt ?? widget.initialDueAt;
+    if (widget.todo != null) {
+      // 수정: 기존 값 유지
+      _startAt = widget.todo!.startAt;
+      _dueAt = widget.todo!.dueAt;
+    } else {
+      // 생성: 달력에서 왔으면 그 날짜, 아니면 오늘로 시작일·마감일 기본 채움
+      final base = widget.initialDueAt ?? DateTime.now();
+      _startAt = base;
+      _dueAt = base;
+    }
     _priority = widget.todo?.priority ?? TodoPriority.medium;
     _recurrence = widget.todo?.recurrence ?? TodoRecurrence.none;
     _editTags = List.of(widget.todo?.tags ?? []);
