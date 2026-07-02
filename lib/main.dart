@@ -5,10 +5,12 @@ import 'screens/calendar_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/auth_api.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AuthSession.load(); // 저장된 토큰 복원 후 시작
+  await NotificationService.init(); // 마감 알림 채널·권한
   runApp(const TodoApp());
 }
 
@@ -31,9 +33,14 @@ class _TodoAppState extends State<TodoApp> {
     // After a change in one view is persisted, immediately refresh the other
     // (silently) so it's already up to date regardless of when — or how fast —
     // the user switches tabs. The tab-switch refresh below is a backup.
-    _todoNotifier.onMutated = () =>
-        _calendarNotifier.loadCalendar(silent: true);
-    _calendarNotifier.onMutated = () => _todoNotifier.loadTodos(silent: true);
+    _todoNotifier.onMutated = () {
+      _calendarNotifier.loadCalendar(silent: true);
+      NotificationService.sync(); // 마감 알림 재예약
+    };
+    _calendarNotifier.onMutated = () {
+      _todoNotifier.loadTodos(silent: true);
+      NotificationService.sync();
+    };
     // refresh까지 실패(장기 미사용 등)하면 로그인 화면으로 복귀.
     AuthSession.onExpired = () {
       if (mounted && _isAuthenticated) {
@@ -43,6 +50,8 @@ class _TodoAppState extends State<TodoApp> {
         });
       }
     };
+    // 이미 로그인 상태(토큰 복원)면 알림 예약
+    if (_isAuthenticated) NotificationService.sync();
   }
 
   void _onTabSelected(int index) {
@@ -64,10 +73,12 @@ class _TodoAppState extends State<TodoApp> {
     _calendarNotifier.loadCalendar();
     _todoNotifier.loadTodos(initial: true);
     _todoNotifier.loadAssignees();
+    NotificationService.sync();
   }
 
   void _logout() {
     AuthSession.clear();
+    NotificationService.cancelAll();
     setState(() {
       _isAuthenticated = false;
       _selectedTab = 0;
