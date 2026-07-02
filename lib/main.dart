@@ -5,11 +5,13 @@ import 'screens/calendar_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/auth_api.dart';
+import 'services/notification_prefs.dart';
 import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AuthSession.load(); // 저장된 토큰 복원 후 시작
+  await NotificationPrefs.load(); // 알림 설정(미리 알림·아침 요약)
   await NotificationService.init(); // 마감 알림 채널·권한
   runApp(const TodoApp());
 }

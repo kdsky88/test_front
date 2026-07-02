@@ -15,6 +15,23 @@ class AuthSession {
 
   static bool get isAuthenticated => accessToken != null;
 
+  /// 액세스 토큰(JWT)의 sub 클레임 = 내 이메일. 서명 검증 없이 payload만 읽음
+  /// (내 화면 표시/공유 필터용). 없거나 파싱 실패 시 null.
+  static String? get currentEmail {
+    final token = accessToken;
+    if (token == null) return null;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload =
+          jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))))
+              as Map<String, dynamic>;
+      return payload['sub'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // 동시 401에 대해 refresh를 1회만 수행(토큰 회전 경쟁 방지).
   static Future<bool>? _refreshInFlight;
 
@@ -88,6 +105,27 @@ class AuthApi {
       'email': email,
       'password': password,
     });
+  }
+
+  /// 비밀번호 변경(로그인 필요). 성공 204. 현재 비번 오답은 백엔드가 400을 주므로
+  /// apiClient의 401→refresh 경로를 타지 않음.
+  static Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await apiClient.post(
+      Uri.parse('$apiBaseUrl/api/auth/password'),
+      headers: const {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      }),
+    );
+    if (response.statusCode == 204) return;
+    throw AuthException(_parseErrorMessage(response));
   }
 
   /// refresh 토큰으로 새 access/refresh 발급. apiClient(자동 refresh 래퍼)가 아닌

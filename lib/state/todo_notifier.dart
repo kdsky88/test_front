@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/todo.dart';
+import '../services/auth_api.dart';
 import '../services/todo_api.dart';
 
 const int kPageLimit = 20;
@@ -13,6 +14,7 @@ class TodoNotifier extends ChangeNotifier {
   String? _searchError;
   String? _tagFilter;
   String? _assigneeFilter;
+  String _scopeFilter = 'all'; // all | mine(내가 만든 것) | shared(공유받음)
   String _sort = 'priority';
   bool _hideCompleted = false;
   TodoStats? _stats;
@@ -36,7 +38,32 @@ class TodoNotifier extends ChangeNotifier {
   // other view immediately (after the change is persisted — avoids races).
   void Function()? onMutated;
 
-  List<Todo> get todos => _todos;
+  /// 공유 스코프 필터를 클라이언트에서 적용.
+  /// ponytail: 현재 페이지 데이터에만 적용(limit=20). 개인용 2인 앱이라 활성 항목이
+  /// 페이지를 넘는 경우가 드물어 충분. 정확한 전역 필터가 필요하면 백엔드 scope 파라미터로.
+  List<Todo> get todos {
+    final me = AuthSession.currentEmail;
+    if (_scopeFilter == 'all' || me == null) return _todos;
+    return _todos.where((t) {
+      final mine = t.ownerEmail == null || t.ownerEmail == me;
+      return _scopeFilter == 'mine' ? mine : !mine;
+    }).toList();
+  }
+
+  /// 스코프 필터가 걸려 있으면 서버 total은 필터 전 값이라 맞지 않음 → 화면에서 숨김용.
+  bool get scopeActive => _scopeFilter != 'all' && AuthSession.currentEmail != null;
+  String get scopeFilter => _scopeFilter;
+
+  /// 로그인 사용자가 공유를 실제로 쓰고 있는지(현재 페이지 기준). 필터 UI 노출 판단용.
+  bool get hasSharing {
+    final me = AuthSession.currentEmail;
+    return _todos.any(
+      (t) =>
+          t.assignedToEmail != null ||
+          (t.ownerEmail != null && t.ownerEmail != me),
+    );
+  }
+
   String get filter => _filter;
   String get searchQuery => _searchQuery;
   String? get searchError => _searchError;
@@ -143,6 +170,13 @@ class TodoNotifier extends ChangeNotifier {
     _tagFilter = tag;
     _page = 1;
     await loadTodos();
+  }
+
+  // 클라이언트 필터라 서버 재요청 없이 즉시 반영.
+  void setScopeFilter(String scope) {
+    if (_scopeFilter == scope) return;
+    _scopeFilter = scope;
+    notifyListeners();
   }
 
   Future<void> setAssigneeFilter(String? assignee) async {
