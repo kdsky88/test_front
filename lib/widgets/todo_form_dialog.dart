@@ -23,6 +23,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _noteCtrl;
   late final TextEditingController _tagCtrl;
+  late final TextEditingController _assignedToCtrl;
   DateTime? _startAt;
   DateTime? _dueAt;
   late TodoPriority _priority;
@@ -52,6 +53,9 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _noteCtrl = TextEditingController(text: widget.todo?.note ?? '');
     _tagCtrl = TextEditingController();
+    _assignedToCtrl = TextEditingController(
+      text: widget.todo?.assignedToEmail ?? '',
+    );
     if (widget.todo != null) {
       // 수정: 기존 값 유지
       _startAt = widget.todo!.startAt;
@@ -72,6 +76,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl.dispose();
     _noteCtrl.dispose();
     _tagCtrl.dispose();
+    _assignedToCtrl.dispose();
     super.dispose();
   }
 
@@ -135,6 +140,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     final note = _noteCtrl.text.isNotEmpty ? _noteCtrl.text : null;
     final startAtStr = _startAt?.toUtc().toIso8601String();
     final dueAtStr = _dueAt?.toUtc().toIso8601String();
+    final assignedEmail = _assignedToCtrl.text.trim();
 
     String? errorMsg;
     String? titleErr;
@@ -154,9 +160,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         startAt: startAtStr,
         dueAt: dueAtStr,
         recurrence: _recurrence.apiValue,
+        assignedToEmail: assignedEmail.isEmpty ? null : assignedEmail,
         clearNote: note == null,
         clearStartAt: _startAt == null,
         clearDueAt: _dueAt == null,
+        clearAssignedTo: assignedEmail.isEmpty,
       );
       if (msg != null) {
         errorMsg = msg;
@@ -185,6 +193,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         startAt: startAtStr,
         dueAt: dueAtStr,
         recurrence: _recurrence.apiValue,
+        assignedToEmail: assignedEmail.isEmpty ? null : assignedEmail,
         tags: List.of(_localTags),
       );
     }
@@ -534,6 +543,22 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                     ),
                   ),
                 ),
+              const SizedBox(height: 14),
+              Text('담당자 (공유)', style: labelStyle),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _assignedToCtrl,
+                enabled: !_submitting,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: '가입된 사용자 이메일 (비우면 미지정)',
+                  helperText: '이 사람의 목록에도 표시되고 완료할 수 있어요',
+                  prefixIcon: Icon(Icons.person_add_alt, size: 20),
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                  counterText: '',
+                ),
+              ),
               const SizedBox(height: 14),
               Text('태그', style: labelStyle),
               const SizedBox(height: 6),
