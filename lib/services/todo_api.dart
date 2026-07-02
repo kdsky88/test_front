@@ -77,6 +77,7 @@ class TodoApi {
     String? startAt,
     String? dueAt,
     String? recurrence,
+    String? assignedToEmail,
   }) async {
     final body = <String, dynamic>{
       'title': title,
@@ -87,6 +88,9 @@ class TodoApi {
     if (startAt != null) body['startAt'] = startAt;
     if (dueAt != null) body['dueAt'] = dueAt;
     if (recurrence != null) body['recurrence'] = recurrence;
+    if (assignedToEmail != null && assignedToEmail.isNotEmpty) {
+      body['assignedToEmail'] = assignedToEmail;
+    }
 
     final response = await apiClient.post(
       Uri.parse('$baseUrl/todos'),
@@ -110,10 +114,12 @@ class TodoApi {
     bool? completed,
     TodoPriority? priority,
     String? recurrence,
+    String? assignedToEmail,
     bool clearDescription = false,
     bool clearNote = false,
     bool clearStartAt = false,
     bool clearDueAt = false,
+    bool clearAssignedTo = false,
   }) async {
     final body = <String, dynamic>{};
     if (title != null) body['title'] = title;
@@ -140,6 +146,11 @@ class TodoApi {
     if (completed != null) body['completed'] = completed;
     if (priority != null) body['priority'] = priority.apiValue;
     if (recurrence != null) body['recurrence'] = recurrence;
+    if (clearAssignedTo) {
+      body['assignedToEmail'] = null;
+    } else if (assignedToEmail != null && assignedToEmail.isNotEmpty) {
+      body['assignedToEmail'] = assignedToEmail;
+    }
 
     final response = await apiClient.patch(
       Uri.parse('$baseUrl/todos/$id'),

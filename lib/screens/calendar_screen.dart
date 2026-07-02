@@ -696,6 +696,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ],
                         ),
                       ],
+                      if (todo.assignedToName != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people_alt_outlined,
+                              size: 13,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '담당 ${todo.assignedToName}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (todo.tags.isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Wrap(

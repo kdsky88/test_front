@@ -51,6 +51,9 @@ class Todo {
   final List<String> tags;
   final String? assignee;
   final TodoRecurrence recurrence;
+  final String? ownerEmail;
+  final String? assignedToEmail;
+  final String? assignedToName;
 
   const Todo({
     required this.id,
@@ -67,6 +70,9 @@ class Todo {
     this.tags = const [],
     this.assignee,
     this.recurrence = TodoRecurrence.none,
+    this.ownerEmail,
+    this.assignedToEmail,
+    this.assignedToName,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
@@ -85,6 +91,9 @@ class Todo {
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
       assignee: json['assignee'] as String?,
       recurrence: TodoRecurrence.fromJson(json['recurrence']),
+      ownerEmail: json['ownerEmail'] as String?,
+      assignedToEmail: json['assignedToEmail'] as String?,
+      assignedToName: json['assignedToName'] as String?,
     );
   }
 
