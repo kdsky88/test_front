@@ -3,6 +3,7 @@ import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_item_widget.dart';
 import '../widgets/todo_form_dialog.dart';
+import 'settings_screen.dart';
 
 class TodoListScreen extends StatefulWidget {
   final TodoNotifier notifier;
@@ -60,6 +61,13 @@ class _TodoListScreenState extends State<TodoListScreen> {
             title: const Text('목록'),
             centerTitle: false,
             actions: [
+              IconButton(
+                tooltip: '설정',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+                icon: const Icon(Icons.settings_outlined),
+              ),
               IconButton(
                 tooltip: '로그아웃',
                 onPressed: widget.onLogout,
@@ -314,7 +322,15 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 onTap: () => n.setFilter('completed'),
               ),
               const Spacer(),
-              if (n.total > 0)
+              if (n.scopeActive)
+                // 스코프 필터는 클라이언트 필터라 서버 total과 안 맞음 → 필터된 개수 표시
+                Text(
+                  '${n.todos.length}개',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
+              else if (n.total > 0)
                 Text(
                   n.searchQuery.isEmpty ? '총 ${n.total}개' : '검색 결과 ${n.total}개',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -323,6 +339,33 @@ class _TodoListScreenState extends State<TodoListScreen> {
                 ),
             ],
           ),
+          if (n.hasSharing) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _FilterButton(
+                  label: '전체',
+                  value: 'all',
+                  current: n.scopeFilter,
+                  onTap: () => n.setScopeFilter('all'),
+                ),
+                const SizedBox(width: 6),
+                _FilterButton(
+                  label: '내가 만든 것',
+                  value: 'mine',
+                  current: n.scopeFilter,
+                  onTap: () => n.setScopeFilter('mine'),
+                ),
+                const SizedBox(width: 6),
+                _FilterButton(
+                  label: '공유받음',
+                  value: 'shared',
+                  current: n.scopeFilter,
+                  onTap: () => n.setScopeFilter('shared'),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 8),
           Row(
             children: [

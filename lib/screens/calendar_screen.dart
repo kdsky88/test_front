@@ -5,6 +5,7 @@ import '../state/calendar_notifier.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_form_dialog.dart';
 import '../widgets/priority_badge.dart';
+import 'settings_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   final CalendarNotifier calendarNotifier;
@@ -42,6 +43,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
             title: const Text('달력'),
             centerTitle: false,
             actions: [
+              IconButton(
+                tooltip: '설정',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                ),
+                icon: const Icon(Icons.settings_outlined),
+              ),
               IconButton(
                 tooltip: '로그아웃',
                 onPressed: widget.onLogout,
