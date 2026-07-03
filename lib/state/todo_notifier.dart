@@ -16,7 +16,7 @@ class TodoNotifier extends ChangeNotifier {
   String? _assigneeFilter;
   String _scopeFilter = 'all'; // all | mine(내가 만든 것) | shared(공유받음)
   String _sort = 'priority';
-  bool _hideCompleted = false;
+  bool _hideCompleted = true; // 기본으로 완료 숨김('전체' 보기 시 미완료만)
   TodoStats? _stats;
   List<String> _assignees = [];
   int _page = 1;

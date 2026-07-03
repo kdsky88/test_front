@@ -600,13 +600,22 @@ class _TodoListScreenState extends State<TodoListScreen> {
         itemCount: todos.length,
         itemBuilder: (context, index) {
           final todo = todos[index];
-          final showHeader =
+          final prev = index == 0 ? null : todos[index - 1];
+          // 미완료→완료 경계에 '완료됨' 구분 헤더(완료는 목록 아래에 모여 있음).
+          final isFirstCompleted =
+              todo.completed && (prev == null || !prev.completed);
+          // 우선순위 헤더는 미완료 항목만(완료는 '완료됨'으로 묶어 구분).
+          final showPriorityHeader =
               grouped &&
-              (index == 0 || todos[index - 1].priority != todo.priority);
+              !todo.completed &&
+              (prev == null || prev.priority != todo.priority);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showHeader) _PrioritySectionHeader(priority: todo.priority),
+              if (isFirstCompleted)
+                const _CompletedSectionHeader()
+              else if (showPriorityHeader)
+                _PrioritySectionHeader(priority: todo.priority),
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: TodoItemWidget(todo: todo, notifier: n),
@@ -810,6 +819,34 @@ class _PrioritySectionHeader extends StatelessWidget {
               color: theme.colorScheme.onSurface,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompletedSectionHeader extends StatelessWidget {
+  const _CompletedSectionHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.onSurface.withValues(alpha: 0.45);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 12, 0, 8),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '완료됨',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Divider(color: theme.dividerColor, height: 1)),
         ],
       ),
     );
