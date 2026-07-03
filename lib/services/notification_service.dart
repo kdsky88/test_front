@@ -55,15 +55,11 @@ class NotificationService {
       if (fireAt == null) continue;
       final when = tz.TZDateTime.from(fireAt, tz.local);
       try {
-        await _plugin.zonedSchedule(
+        await _scheduleAt(
           _idFor(t.id),
           '마감: ${t.title}',
           t.note ?? '지금 마감이에요.',
           when,
-          _details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
         );
       } catch (_) {
         // 한 건 예약 실패가 나머지 항목·아침 요약 예약까지 막지 않도록 무시
@@ -90,16 +86,41 @@ class NotificationService {
     final m = nextMorning(now, NotificationPrefs.morningHour,
         NotificationPrefs.morningMinute);
     final when = tz.TZDateTime(tz.local, m.year, m.month, m.day, m.hour, m.minute);
-    await _plugin.zonedSchedule(
-      _morningId,
-      '오늘 할 일 $count개',
-      '오늘 처리할 일이 $count개 있어요.',
-      when,
-      _details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+    try {
+      await _scheduleAt(
+        _morningId,
+        '오늘 할 일 $count개',
+        '오늘 처리할 일이 $count개 있어요.',
+        when,
+      );
+    } catch (_) {}
+  }
+
+  /// 정확 알람으로 예약, 불가하면 부정확(늦더라도 오는 게 안 오는 것보다 나음)으로 폴백.
+  /// 성공 시 사용한 모드('exact'/'inexact') 반환. 둘 다 실패하면 예외 전파.
+  static Future<String> _scheduleAt(
+    int id,
+    String title,
+    String body,
+    tz.TZDateTime when,
+  ) async {
+    try {
+      await _plugin.zonedSchedule(
+        id, title, body, when, _details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      return 'exact';
+    } catch (_) {
+      await _plugin.zonedSchedule(
+        id, title, body, when, _details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      return 'inexact';
+    }
   }
 
   /// 마감 알림 발사 시각(순수, 테스트용). null이면 예약 안 함(마감 없음/이미 지남).
@@ -144,7 +165,40 @@ class NotificationService {
     return granted ?? true;
   }
 
-  static const int _testId = 1999999998;
+  /// 알림 진단: 권한/정확알람 가능 여부를 읽고, 실제 예약 경로로 2분 뒤 테스트를
+  /// 예약한 뒤 '진짜로 예약됐는지'(pendingNotificationRequests)를 되읽어 리포트.
+  /// → 예약 자체 실패(코드/권한) vs 예약은 됐는데 안 울림(배터리/OEM)을 가른다.
+  static Future<String> diagnostics() async {
+    if (!_ready) await init();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    await android?.requestNotificationsPermission();
+    final enabled = await android?.areNotificationsEnabled();
+    final canExact = await android?.canScheduleExactNotifications();
+    final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 2));
+    String scheduleLine;
+    try {
+      final mode =
+          await _scheduleAt(_testScheduledId, '예약 테스트', '2분 뒤 예약 알림 도착 ✅', when);
+      scheduleLine = '2분 뒤 예약: $mode 모드로 성공';
+    } catch (e) {
+      scheduleLine = '2분 뒤 예약: 실패 — $e';
+    }
+    final pending = await _plugin.pendingNotificationRequests();
+    return [
+      '알림 켜짐: ${_yn(enabled)}',
+      '정확 알람 가능: ${_yn(canExact)}',
+      scheduleLine,
+      '현재 예약된 알림: ${pending.length}건',
+    ].join('\n');
+  }
+
+  static String _yn(bool? b) => b == null ? '?' : (b ? '예' : '아니오');
+
+  static const int _testId = 1999999998; // 즉시 테스트
+  static const int _testScheduledId = 1999999997; // 2분 뒤 예약 테스트
 
   // 아침 요약용 고정 예약 id. todo id 범위(_idFor)와 겹치지 않게 예약.
   static const int _morningId = 1999999999;
