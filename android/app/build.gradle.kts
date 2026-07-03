@@ -87,6 +87,13 @@ android {
                     error("Release builds require --dart-define=API_BASE_URL=https://...")
                 }
             }
+            // R8 축소가 GSON 제네릭 시그니처를 지워 flutter_local_notifications의 예약 알림
+            // 직렬화가 "Missing type parameter."로 실패함 → 예약 알림이 전혀 안 뜸.
+            // 개인용 사이드로드 앱이라 축소 이득이 없어 minify를 끔(즉시 알림엔 영향 없음).
+            // 나중에 다시 켜려면 flutter_local_notifications keep 규칙 필요:
+            //   -keepattributes Signature / -keep class com.dexterous.** / TypeToken 유지
+            isMinifyEnabled = false
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("release")
         }
     }
