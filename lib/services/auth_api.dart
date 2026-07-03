@@ -49,8 +49,13 @@ class AuthSession {
     try {
       update(await AuthApi.refresh(rt));
       return true;
-    } catch (_) {
+    } on AuthUnauthorized {
+      // refresh 토큰이 실제로 무효/만료 → 진짜 로그아웃
       clear();
+      return false;
+    } catch (_) {
+      // 네트워크/일시 오류(콜드스타트 등)는 세션을 비우지 않음 → 다음 요청에서 재시도.
+      // (이전엔 여기서 clear()해서 일시 오류에도 로그인이 풀리던 버그)
       return false;
     }
   }
@@ -140,6 +145,11 @@ class AuthApi {
         jsonDecode(response.body) as Map<String, dynamic>,
       );
     }
+    // 401/403 = refresh 토큰이 실제로 무효/만료(→ 로그아웃). 그 외(5xx/네트워크)는
+    // 일시 오류로 취급해 세션을 유지하고 재시도할 수 있게 구분한다.
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw AuthUnauthorized(_parseErrorMessage(response));
+    }
     throw AuthException(_parseErrorMessage(response));
   }
 
@@ -201,4 +211,9 @@ class AuthException implements Exception {
   AuthException(this.message);
 
   final String message;
+}
+
+/// refresh 토큰이 실제로 무효/만료된 경우(401/403). 일시 오류와 구분해 로그아웃 처리.
+class AuthUnauthorized extends AuthException {
+  AuthUnauthorized(super.message);
 }
