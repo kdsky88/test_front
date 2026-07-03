@@ -50,21 +50,24 @@ class NotificationService {
     final now = DateTime.now();
     final lead = Duration(minutes: NotificationPrefs.leadMinutes);
     for (final t in todos) {
-      final due = t.dueAt;
-      if (t.completed || due == null) continue;
-      final fireAt = due.subtract(lead); // 마감 N분 전
-      if (!fireAt.isAfter(now)) continue; // (마감-lead)가 이미 지났으면 스킵
+      if (t.completed) continue;
+      final fireAt = fireTimeFor(t.dueAt, lead, now);
+      if (fireAt == null) continue;
       final when = tz.TZDateTime.from(fireAt, tz.local);
-      await _plugin.zonedSchedule(
-        _idFor(t.id),
-        '마감: ${t.title}',
-        t.note ?? '지금 마감이에요.',
-        when,
-        _details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+      try {
+        await _plugin.zonedSchedule(
+          _idFor(t.id),
+          '마감: ${t.title}',
+          t.note ?? '지금 마감이에요.',
+          when,
+          _details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        // 한 건 예약 실패가 나머지 항목·아침 요약 예약까지 막지 않도록 무시
+      }
     }
     await _scheduleMorningDigest(todos, now);
   }
@@ -93,10 +96,18 @@ class NotificationService {
       '오늘 처리할 일이 $count개 있어요.',
       when,
       _details,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
+  }
+
+  /// 마감 알림 발사 시각(순수, 테스트용). null이면 예약 안 함(마감 없음/이미 지남).
+  /// lead가 마감을 과거로 밀면 마감 시각으로 클램프 — 이미 lead 창 안이면 최소 마감 때라도 알림.
+  static DateTime? fireTimeFor(DateTime? due, Duration lead, DateTime now) {
+    if (due == null || !due.isAfter(now)) return null;
+    final fireAt = due.subtract(lead);
+    return fireAt.isBefore(now) ? due : fireAt;
   }
 
   /// 다음 아침 알림 시각(로컬 벽시계). 오늘 그 시각이 아직 안 지났으면 오늘, 지났으면 내일.
@@ -119,6 +130,21 @@ class NotificationService {
   static Future<void> cancelAll() async {
     if (_ready) await _plugin.cancelAll();
   }
+
+  /// 즉시 테스트 알림. 권한을 (재)요청하고 바로 하나 띄움.
+  /// 반환: 알림 권한 허용 여부(false면 시스템 설정에서 켜야 함).
+  static Future<bool> sendTest() async {
+    if (!_ready) await init();
+    final granted = await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
+    await _plugin.show(_testId, '테스트 알림', '알림이 정상 작동해요 ✅', _details);
+    return granted ?? true;
+  }
+
+  static const int _testId = 1999999998;
 
   // 아침 요약용 고정 예약 id. todo id 범위(_idFor)와 겹치지 않게 예약.
   static const int _morningId = 1999999999;
