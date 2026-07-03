@@ -4,6 +4,10 @@
     <!-- 마감 알림용 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- 마감 시각에 정확히 울리는 알람. 사이드로드(Play 미등록)라 USE_EXACT_ALARM 사용 가능.
+         API 33+: USE_EXACT_ALARM 자동 허용 / API 31-32: SCHEDULE_EXACT_ALARM 기본 허용 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application
         android:label="할 일"

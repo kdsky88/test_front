@@ -30,6 +30,39 @@ void main() {
     });
   });
 
+  group('NotificationService.fireTimeFor (lead 클램프)', () {
+    final now = DateTime(2026, 7, 3, 12, 0);
+
+    test('마감 없으면 null', () {
+      expect(
+        NotificationService.fireTimeFor(null, const Duration(minutes: 30), now),
+        isNull,
+      );
+    });
+    test('마감이 이미 지났으면 null', () {
+      expect(
+        NotificationService.fireTimeFor(
+            DateTime(2026, 7, 3, 11), Duration.zero, now),
+        isNull,
+      );
+    });
+    test('정상: 마감 - lead 시각에 예약', () {
+      expect(
+        NotificationService.fireTimeFor(
+            DateTime(2026, 7, 3, 14), const Duration(minutes: 30), now),
+        DateTime(2026, 7, 3, 13, 30),
+      );
+    });
+    test('lead가 마감을 과거로 밀면 마감 시각으로 클램프(이번 버그)', () {
+      // 마감 12:10(10분 뒤) + lead 30분 → 11:40(과거) → 마감 12:10에 알림
+      expect(
+        NotificationService.fireTimeFor(
+            DateTime(2026, 7, 3, 12, 10), const Duration(minutes: 30), now),
+        DateTime(2026, 7, 3, 12, 10),
+      );
+    });
+  });
+
   group('NotificationService.nextMorning (오늘/내일 경계)', () {
     test('목표 시각 전이면 오늘', () {
       expect(
