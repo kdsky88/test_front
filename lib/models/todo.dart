@@ -206,6 +206,8 @@ class TodoStats {
   final int active;
   final int overdue;
   final int dueToday;
+  final int completedToday;
+  final int completedThisWeek;
 
   const TodoStats({
     required this.total,
@@ -213,6 +215,8 @@ class TodoStats {
     required this.active,
     required this.overdue,
     required this.dueToday,
+    this.completedToday = 0,
+    this.completedThisWeek = 0,
   });
 
   factory TodoStats.fromJson(Map<String, dynamic> json) {
@@ -222,6 +226,8 @@ class TodoStats {
       active: (json['active'] as num).toInt(),
       overdue: (json['overdue'] as num).toInt(),
       dueToday: (json['dueToday'] as num).toInt(),
+      completedToday: (json['completedToday'] as num?)?.toInt() ?? 0,
+      completedThisWeek: (json['completedThisWeek'] as num?)?.toInt() ?? 0,
     );
   }
 

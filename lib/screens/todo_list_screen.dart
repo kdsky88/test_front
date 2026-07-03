@@ -4,6 +4,7 @@ import '../state/todo_notifier.dart';
 import '../widgets/todo_item_widget.dart';
 import '../widgets/todo_form_dialog.dart';
 import 'settings_screen.dart';
+import 'stats_screen.dart';
 
 class TodoListScreen extends StatefulWidget {
   final TodoNotifier notifier;
@@ -166,18 +167,23 @@ class _TodoListScreenState extends State<TodoListScreen> {
     final otherActive = stats.active - stats.overdue - stats.dueToday;
     final safeOther = otherActive < 0 ? 0 : otherActive;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Material(
         color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              tile('전체', '${stats.total}', theme.colorScheme.onSurface),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const StatsScreen()),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    tile('전체', '${stats.total}', theme.colorScheme.onSurface),
               tile(
                 '완료율',
                 '${stats.completionPercent}%',
@@ -227,7 +233,25 @@ class _TodoListScreenState extends State<TodoListScreen> {
               legendDot('진행중', activeColor),
             ],
           ),
-        ],
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '완료 통계 보기',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Icon(Icons.chevron_right,
+                  size: 16, color: theme.colorScheme.primary),
+            ],
+          ),
+            ],
+          ),
+        ),
+      ),
       ),
     );
   }
