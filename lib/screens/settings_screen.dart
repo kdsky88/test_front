@@ -145,7 +145,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _runDiagnostics() async {
-    final report = await NotificationService.diagnostics();
+    String report;
+    try {
+      report = await NotificationService.diagnostics();
+    } catch (e) {
+      report = '진단 실행 오류: $e';
+    }
     if (!mounted) return;
     showDialog(
       context: context,

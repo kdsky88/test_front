@@ -168,31 +168,50 @@ class NotificationService {
   /// 알림 진단: 권한/정확알람 가능 여부를 읽고, 실제 예약 경로로 2분 뒤 테스트를
   /// 예약한 뒤 '진짜로 예약됐는지'(pendingNotificationRequests)를 되읽어 리포트.
   /// → 예약 자체 실패(코드/권한) vs 예약은 됐는데 안 울림(배터리/OEM)을 가른다.
+  /// 절대 예외를 던지지 않고 항상 리포트 문자열을 반환(호출 하나가 실패해도 UI가 뜨도록).
   static Future<String> diagnostics() async {
-    if (!_ready) await init();
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-    await android?.requestNotificationsPermission();
-    final enabled = await android?.areNotificationsEnabled();
-    final canExact = await android?.canScheduleExactNotifications();
-    final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 2));
-    String scheduleLine;
+    final lines = <String>[];
     try {
-      final mode =
-          await _scheduleAt(_testScheduledId, '예약 테스트', '2분 뒤 예약 알림 도착 ✅', when);
-      scheduleLine = '2분 뒤 예약: $mode 모드로 성공';
+      if (!_ready) await init();
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      try {
+        await android?.requestNotificationsPermission();
+      } catch (_) {}
+      bool? enabled;
+      try {
+        enabled = await android?.areNotificationsEnabled();
+      } catch (e) {
+        lines.add('알림 켜짐 확인 오류: $e');
+      }
+      bool? canExact;
+      try {
+        canExact = await android?.canScheduleExactNotifications();
+      } catch (e) {
+        lines.add('정확 알람 확인 오류: $e');
+      }
+      lines.add('알림 켜짐: ${_yn(enabled)}');
+      lines.add('정확 알람 가능: ${_yn(canExact)}');
+      final when = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 2));
+      try {
+        final mode = await _scheduleAt(
+            _testScheduledId, '예약 테스트', '2분 뒤 예약 알림 도착 ✅', when);
+        lines.add('2분 뒤 예약: $mode 모드로 성공');
+      } catch (e) {
+        lines.add('2분 뒤 예약: 실패 — $e');
+      }
+      try {
+        final pending = await _plugin.pendingNotificationRequests();
+        lines.add('현재 예약된 알림: ${pending.length}건');
+      } catch (e) {
+        lines.add('예약 목록 확인 오류: $e');
+      }
     } catch (e) {
-      scheduleLine = '2분 뒤 예약: 실패 — $e';
+      lines.add('진단 오류: $e');
     }
-    final pending = await _plugin.pendingNotificationRequests();
-    return [
-      '알림 켜짐: ${_yn(enabled)}',
-      '정확 알람 가능: ${_yn(canExact)}',
-      scheduleLine,
-      '현재 예약된 알림: ${pending.length}건',
-    ].join('\n');
+    return lines.join('\n');
   }
 
   static String _yn(bool? b) => b == null ? '?' : (b ? '예' : '아니오');
