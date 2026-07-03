@@ -41,13 +41,34 @@ class TodoNotifier extends ChangeNotifier {
   /// 공유 스코프 필터를 클라이언트에서 적용.
   /// ponytail: 현재 페이지 데이터에만 적용(limit=20). 개인용 2인 앱이라 활성 항목이
   /// 페이지를 넘는 경우가 드물어 충분. 정확한 전역 필터가 필요하면 백엔드 scope 파라미터로.
+  static const int _archiveAfterDays = 14;
+
   List<Todo> get todos {
+    var list = _todos;
+    // 자동 보관: '전체' 보기에선 완료된 지 오래된(14일↑) 항목을 숨겨 목록을 깔끔히.
+    // '완료' 탭·통계 화면엔 그대로 보임(그쪽은 이 게터를 안 타거나 _filter=='completed').
+    // ponytail: 클라 필터라 현재 페이지 기준. 개인용 규모엔 충분.
+    if (_filter != 'completed') {
+      final cutoff = DateTime.now().subtract(
+        const Duration(days: _archiveAfterDays),
+      );
+      list = list
+          .where(
+            (t) => !(t.completed &&
+                t.completedAt != null &&
+                t.completedAt!.toLocal().isBefore(cutoff)),
+          )
+          .toList();
+    }
+    // 공유 스코프 필터
     final me = AuthSession.currentEmail;
-    if (_scopeFilter == 'all' || me == null) return _todos;
-    return _todos.where((t) {
-      final mine = t.ownerEmail == null || t.ownerEmail == me;
-      return _scopeFilter == 'mine' ? mine : !mine;
-    }).toList();
+    if (_scopeFilter != 'all' && me != null) {
+      list = list.where((t) {
+        final mine = t.ownerEmail == null || t.ownerEmail == me;
+        return _scopeFilter == 'mine' ? mine : !mine;
+      }).toList();
+    }
+    return list;
   }
 
   /// 스코프 필터가 걸려 있으면 서버 total은 필터 전 값이라 맞지 않음 → 화면에서 숨김용.
