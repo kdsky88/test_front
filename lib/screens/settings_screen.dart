@@ -89,18 +89,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(_morningTime.format(context)),
               ),
             ),
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text('테스트 알림 보내기'),
-            subtitle: const Text('지금 알림이 오는지 바로 확인해요'),
-            onTap: _sendTest,
-          ),
-          ListTile(
-            leading: const Icon(Icons.bug_report_outlined),
-            title: const Text('알림 진단 (2분 뒤 예약 테스트)'),
-            subtitle: const Text('예약 알림이 실제로 잡히는지 확인해요'),
-            onTap: _runDiagnostics,
-          ),
           const Divider(height: 32),
           _sectionHeader(context, '계정'),
           ListTile(
@@ -123,56 +111,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _sendTest() async {
-    final messenger = ScaffoldMessenger.of(context);
-    final granted = await NotificationService.sendTest();
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          granted
-              ? '테스트 알림을 보냈어요. 알림창을 확인해보세요.'
-              : '알림 권한이 꺼져 있어요. 시스템 설정 > 앱 > 할 일 > 알림에서 켜주세요.',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _runDiagnostics() async {
-    String report;
-    try {
-      report = await NotificationService.diagnostics();
-    } catch (e) {
-      report = '진단 실행 오류: $e';
-    }
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('알림 진단'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(report),
-            const SizedBox(height: 12),
-            const Text(
-              '이제 다른 화면으로 이동하지 말고 폰을 잠근 뒤 2분 기다려보세요. '
-              '"예약 테스트" 알림이 오면 정상이에요. 안 오면 이 화면 내용을 알려주세요.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('확인'),
           ),
         ],
       ),
