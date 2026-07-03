@@ -30,7 +30,9 @@ class _AuthClient extends http.BaseClient {
     if (response.statusCode == 401 && AuthSession.refreshToken != null) {
       if (await AuthSession.tryRefresh()) {
         response = await _inner.send(_rebuild(request, body));
-      } else {
+      } else if (!AuthSession.isAuthenticated) {
+        // refresh가 세션을 실제로 비운 경우(=refresh 토큰 무효/만료)에만 로그아웃.
+        // 일시 오류로 refresh만 실패한 경우엔 세션 유지(요청은 401로 반환).
         AuthSession.onExpired?.call();
       }
     }
