@@ -208,7 +208,10 @@ class TodoStats {
   final int dueToday;
   final int completedToday;
   final int completedThisWeek;
+  final int completedThisMonth;
   final int streakDays;
+  final int longestStreak;
+  final List<int> last7Days; // index 6 = 오늘, 0 = 6일 전
 
   const TodoStats({
     required this.total,
@@ -218,7 +221,10 @@ class TodoStats {
     required this.dueToday,
     this.completedToday = 0,
     this.completedThisWeek = 0,
+    this.completedThisMonth = 0,
     this.streakDays = 0,
+    this.longestStreak = 0,
+    this.last7Days = const [],
   });
 
   factory TodoStats.fromJson(Map<String, dynamic> json) {
@@ -230,7 +236,14 @@ class TodoStats {
       dueToday: (json['dueToday'] as num).toInt(),
       completedToday: (json['completedToday'] as num?)?.toInt() ?? 0,
       completedThisWeek: (json['completedThisWeek'] as num?)?.toInt() ?? 0,
+      completedThisMonth: (json['completedThisMonth'] as num?)?.toInt() ?? 0,
       streakDays: (json['streakDays'] as num?)?.toInt() ?? 0,
+      longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 0,
+      last7Days:
+          (json['last7Days'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
     );
   }
 
