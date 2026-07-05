@@ -100,6 +100,10 @@ class _StatsScreenState extends State<StatsScreen> {
     final s = _stats!;
     return [
       _completionCard(context, s),
+      if (s.streakDays > 0) ...[
+        const SizedBox(height: 12),
+        _streakBanner(context, s.streakDays),
+      ],
       const SizedBox(height: 12),
       Row(
         children: [
@@ -177,6 +181,45 @@ class _StatsScreenState extends State<StatsScreen> {
           const SizedBox(height: 10),
           Text('전체 ${s.total}개 중 ${s.completed}개 완료 · 미완료 ${s.active}개',
               style: theme.textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+
+  Widget _streakBanner(BuildContext context, int days) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.deepOrange.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepOrange.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.local_fire_department, color: Colors.deepOrange.shade400),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$days일 연속',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepOrange.shade700,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' 완료 중이에요!',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
