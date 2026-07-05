@@ -37,6 +37,24 @@ class TodoApi {
     throw _parseError(response);
   }
 
+  /// 완료 기록: 완료 시각(completedAt) 내림차순. 목록 정렬과 별개 전용 엔드포인트라
+  /// '오늘 완료' 통계와 기록 상단이 어긋나지 않음.
+  static Future<TodoListResponse> getCompletedHistory({
+    int page = 1,
+    int limit = 100,
+  }) async {
+    final uri = Uri.parse('$baseUrl/todos/completed').replace(
+      queryParameters: {'page': '$page', 'limit': '$limit'},
+    );
+    final response = await apiClient.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      return TodoListResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    }
+    throw _parseError(response);
+  }
+
   static Future<TodoListResponse> getTodos({
     required String status,
     required int page,
