@@ -96,6 +96,7 @@ class TodoApi {
     String? dueAt,
     String? recurrence,
     String? assignedToEmail,
+    List<Subtask>? subtasks,
   }) async {
     final body = <String, dynamic>{
       'title': title,
@@ -108,6 +109,9 @@ class TodoApi {
     if (recurrence != null) body['recurrence'] = recurrence;
     if (assignedToEmail != null && assignedToEmail.isNotEmpty) {
       body['assignedToEmail'] = assignedToEmail;
+    }
+    if (subtasks != null && subtasks.isNotEmpty) {
+      body['subtasks'] = subtasks.map((s) => s.toJson()).toList();
     }
 
     final response = await apiClient.post(
@@ -133,6 +137,7 @@ class TodoApi {
     TodoPriority? priority,
     String? recurrence,
     String? assignedToEmail,
+    List<Subtask>? subtasks,
     bool clearDescription = false,
     bool clearNote = false,
     bool clearStartAt = false,
@@ -168,6 +173,10 @@ class TodoApi {
       body['assignedToEmail'] = null;
     } else if (assignedToEmail != null && assignedToEmail.isNotEmpty) {
       body['assignedToEmail'] = assignedToEmail;
+    }
+    // null = 하위 항목 미변경, 리스트(빈 것 포함) = 통째로 교체.
+    if (subtasks != null) {
+      body['subtasks'] = subtasks.map((s) => s.toJson()).toList();
     }
 
     final response = await apiClient.patch(
