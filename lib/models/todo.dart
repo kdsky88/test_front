@@ -36,6 +36,23 @@ enum TodoRecurrence {
   }
 }
 
+class Subtask {
+  final String title;
+  final bool done;
+
+  const Subtask({required this.title, this.done = false});
+
+  factory Subtask.fromJson(Map<String, dynamic> json) => Subtask(
+    title: json['title'] as String,
+    done: json['done'] as bool? ?? false,
+  );
+
+  Map<String, dynamic> toJson() => {'title': title, 'done': done};
+
+  Subtask copyWith({String? title, bool? done}) =>
+      Subtask(title: title ?? this.title, done: done ?? this.done);
+}
+
 class Todo {
   final String id;
   final String title;
@@ -49,6 +66,7 @@ class Todo {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<String> tags;
+  final List<Subtask> subtasks;
   final String? assignee;
   final TodoRecurrence recurrence;
   final String? ownerEmail;
@@ -68,6 +86,7 @@ class Todo {
     required this.createdAt,
     required this.updatedAt,
     this.tags = const [],
+    this.subtasks = const [],
     this.assignee,
     this.recurrence = TodoRecurrence.none,
     this.ownerEmail,
@@ -89,6 +108,11 @@ class Todo {
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+      subtasks:
+          (json['subtasks'] as List<dynamic>?)
+              ?.map((e) => Subtask.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       assignee: json['assignee'] as String?,
       recurrence: TodoRecurrence.fromJson(json['recurrence']),
       ownerEmail: json['ownerEmail'] as String?,
@@ -105,6 +129,9 @@ class Todo {
       return null;
     }
   }
+
+  int get subtaskTotal => subtasks.length;
+  int get subtaskDone => subtasks.where((s) => s.done).length;
 
   /// 마감 시각이 이미 지남 → 빨강 (기한 경과)
   bool get isOverdue {
@@ -166,6 +193,7 @@ class Todo {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       tags: tags,
+      subtasks: subtasks,
       assignee: assignee ?? this.assignee,
     );
   }

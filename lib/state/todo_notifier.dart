@@ -289,6 +289,7 @@ class TodoNotifier extends ChangeNotifier {
     String? recurrence,
     String? assignedToEmail,
     List<String> tags = const [],
+    List<Subtask> subtasks = const [],
   }) async {
     try {
       final created = await TodoApi.createTodo(
@@ -300,6 +301,7 @@ class TodoNotifier extends ChangeNotifier {
         dueAt: dueAt,
         recurrence: recurrence,
         assignedToEmail: assignedToEmail,
+        subtasks: subtasks,
       );
       for (final tag in tags) {
         await TodoApi.addTag(id: created.id, tag: tag);
@@ -355,6 +357,44 @@ class TodoNotifier extends ChangeNotifier {
     }
   }
 
+  /// 하위 항목 하나의 완료 상태를 토글. 전체 목록을 통째로 보내 교체.
+  /// 태그 패턴과 동일하게 응답 todo로 로컬 항목만 갱신(낙관적 갱신 없음).
+  Future<(Todo?, String?)> toggleSubtask(String id, int index) async {
+    final idx = _todos.indexWhere((t) => t.id == id);
+    if (idx < 0) return (null, null);
+    final todo = _todos[idx];
+    if (index < 0 || index >= todo.subtasks.length) return (null, null);
+
+    final newSubs = List<Subtask>.of(todo.subtasks);
+    newSubs[index] = newSubs[index].copyWith(done: !newSubs[index].done);
+
+    if (_processingIds.contains(id)) return (null, null);
+    _processingIds.add(id);
+    _itemErrors.remove(id);
+    notifyListeners();
+
+    try {
+      final updated = await TodoApi.updateTodo(id: id, subtasks: newSubs);
+      _processingIds.remove(id);
+      final j = _todos.indexWhere((t) => t.id == id);
+      if (j >= 0) {
+        _todos = List.of(_todos)..[j] = updated;
+      }
+      notifyListeners();
+      return (updated, null);
+    } on ApiException catch (e) {
+      _processingIds.remove(id);
+      _itemErrors[id] = e.error.message;
+      notifyListeners();
+      return (null, e.error.message);
+    } catch (_) {
+      _processingIds.remove(id);
+      _itemErrors[id] = '하위 항목을 변경할 수 없습니다.';
+      notifyListeners();
+      return (null, '하위 항목을 변경할 수 없습니다.');
+    }
+  }
+
   /// Returns (updatedTodo, errorMessage). On 404: refreshes list.
   Future<(Todo?, ApiException?, String?)> updateTodo({
     required String id,
@@ -366,6 +406,7 @@ class TodoNotifier extends ChangeNotifier {
     String? dueAt,
     String? recurrence,
     String? assignedToEmail,
+    List<Subtask>? subtasks,
     bool clearDescription = false,
     bool clearNote = false,
     bool clearStartAt = false,
@@ -383,6 +424,7 @@ class TodoNotifier extends ChangeNotifier {
         dueAt: dueAt,
         recurrence: recurrence,
         assignedToEmail: assignedToEmail,
+        subtasks: subtasks,
         clearDescription: clearDescription,
         clearNote: clearNote,
         clearStartAt: clearStartAt,

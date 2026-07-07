@@ -141,6 +141,71 @@ class TodoItemWidget extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (todo.subtasks.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.checklist,
+                                size: 14,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${todo.subtaskDone}/${todo.subtaskTotal}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          ...List.generate(todo.subtasks.length, (i) {
+                            final sub = todo.subtasks[i];
+                            return InkWell(
+                              onTap: isProcessing
+                                  ? null
+                                  : () =>
+                                        notifier.toggleSubtask(todo.id, i),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 1),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      sub.done
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      size: 18,
+                                      color: sub.done
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.onSurface
+                                                .withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        sub.title,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              decoration: sub.done
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
+                                              color: sub.done
+                                                  ? theme.colorScheme.onSurface
+                                                        .withValues(alpha: 0.5)
+                                                  : theme.colorScheme
+                                                        .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                         if (todo.startAt != null) ...[
                           const SizedBox(height: 4),
                           Row(

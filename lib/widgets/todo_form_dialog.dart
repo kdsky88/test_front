@@ -23,6 +23,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _noteCtrl;
   late final TextEditingController _tagCtrl;
+  late final TextEditingController _subtaskCtrl;
   late final TextEditingController _assignedToCtrl;
   DateTime? _startAt;
   DateTime? _dueAt;
@@ -45,6 +46,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   bool _tagProcessing = false;
   String? _tagError;
 
+  // 하위 항목은 로컬로 편집하고 저장 시 통째로 반영(태그와 달리 개별 API 없음).
+  late List<Subtask> _subtasks;
+  String? _subtaskError;
+
   bool get _isEdit => widget.todo != null;
 
   @override
@@ -53,9 +58,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
     _noteCtrl = TextEditingController(text: widget.todo?.note ?? '');
     _tagCtrl = TextEditingController();
+    _subtaskCtrl = TextEditingController();
     _assignedToCtrl = TextEditingController(
       text: widget.todo?.assignedToEmail ?? '',
     );
+    _subtasks = List.of(widget.todo?.subtasks ?? const []);
     if (widget.todo != null) {
       // 수정: 기존 값 유지
       _startAt = widget.todo!.startAt;
@@ -76,6 +83,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _titleCtrl.dispose();
     _noteCtrl.dispose();
     _tagCtrl.dispose();
+    _subtaskCtrl.dispose();
     _assignedToCtrl.dispose();
     super.dispose();
   }
@@ -161,6 +169,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         dueAt: dueAtStr,
         recurrence: _recurrence.apiValue,
         assignedToEmail: assignedEmail.isEmpty ? null : assignedEmail,
+        subtasks: List.of(_subtasks),
         clearNote: note == null,
         clearStartAt: _startAt == null,
         clearDueAt: _dueAt == null,
@@ -195,6 +204,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         recurrence: _recurrence.apiValue,
         assignedToEmail: assignedEmail.isEmpty ? null : assignedEmail,
         tags: List.of(_localTags),
+        subtasks: List.of(_subtasks),
       );
     }
 
@@ -280,6 +290,24 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         time.minute,
       );
       _startAtError = null;
+    });
+  }
+
+  void _addSubtask() {
+    final title = _subtaskCtrl.text.trim();
+    if (title.isEmpty) return;
+    if (title.length > 100) {
+      setState(() => _subtaskError = '하위 항목은 100자 이하로 입력해주세요.');
+      return;
+    }
+    if (_subtasks.length >= 50) {
+      setState(() => _subtaskError = '하위 항목은 최대 50개까지 추가할 수 있습니다.');
+      return;
+    }
+    setState(() {
+      _subtasks.add(Subtask(title: title));
+      _subtaskCtrl.clear();
+      _subtaskError = null;
     });
   }
 
@@ -629,6 +657,82 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                       )
                       .toList(),
                 ),
+              ],
+              const SizedBox(height: 14),
+              Text('하위 항목 (체크리스트)', style: labelStyle),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _subtaskCtrl,
+                      decoration: InputDecoration(
+                        hintText: '하위 항목 입력 (최대 100자)',
+                        errorText: _subtaskError,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                        counterText: '',
+                      ),
+                      maxLength: 100,
+                      enabled: !_submitting,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _addSubtask(),
+                      onChanged: (_) => setState(() => _subtaskError = null),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 40,
+                    child: OutlinedButton(
+                      onPressed: _submitting ? null : _addSubtask,
+                      child: const Text('추가'),
+                    ),
+                  ),
+                ],
+              ),
+              if (_subtasks.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                ...List.generate(_subtasks.length, (i) {
+                  final sub = _subtasks[i];
+                  return Row(
+                    children: [
+                      Checkbox(
+                        value: sub.done,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onChanged: _submitting
+                            ? null
+                            : (v) => setState(
+                                () => _subtasks[i] = sub.copyWith(done: v),
+                              ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          sub.title,
+                          style: TextStyle(
+                            decoration: sub.done
+                                ? TextDecoration.lineThrough
+                                : null,
+                            color: sub.done
+                                ? theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 16),
+                        tooltip: '삭제',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _submitting
+                            ? null
+                            : () => setState(() => _subtasks.removeAt(i)),
+                      ),
+                    ],
+                  );
+                }),
               ],
               if (_generalError != null)
                 Padding(
