@@ -109,7 +109,7 @@ class _TodoDetailSheetState extends State<_TodoDetailSheet> {
         padding: EdgeInsets.only(
           left: 20,
           right: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
         ),
         child: SingleChildScrollView(
           child: Column(
