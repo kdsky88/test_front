@@ -605,6 +605,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                       ],
+                      if (todo.subtasks.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.checklist,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: todo.subtaskTotal == 0
+                                      ? 0
+                                      : todo.subtaskDone / todo.subtaskTotal,
+                                  minHeight: 6,
+                                  backgroundColor:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${todo.subtaskDone}/${todo.subtaskTotal}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (todo.startAt != null) ...[
                         const SizedBox(height: 4),
                         Row(
