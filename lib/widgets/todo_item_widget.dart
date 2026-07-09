@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 import 'todo_form_dialog.dart';
+import 'todo_detail_sheet.dart';
 import 'priority_badge.dart';
 
 class TodoItemWidget extends StatelessWidget {
@@ -42,7 +43,11 @@ class TodoItemWidget extends StatelessWidget {
         color: todo.completed
             ? theme.colorScheme.surfaceContainerLow
             : theme.colorScheme.surface,
-        child: Padding(
+        child: InkWell(
+          onTap: () =>
+              showTodoDetail(context, todo: todo, notifier: notifier),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +147,7 @@ class TodoItemWidget extends StatelessWidget {
                           ),
                         ],
                         if (todo.subtasks.isNotEmpty) ...[
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           Row(
                             children: [
                               Icon(
@@ -150,7 +155,21 @@ class TodoItemWidget extends StatelessWidget {
                                 size: 14,
                                 color: theme.colorScheme.primary,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: todo.subtaskTotal == 0
+                                        ? 0
+                                        : todo.subtaskDone / todo.subtaskTotal,
+                                    minHeight: 6,
+                                    backgroundColor:
+                                        theme.colorScheme.surfaceContainerHighest,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Text(
                                 '${todo.subtaskDone}/${todo.subtaskTotal}',
                                 style: TextStyle(
@@ -161,50 +180,6 @@ class TodoItemWidget extends StatelessWidget {
                               ),
                             ],
                           ),
-                          ...List.generate(todo.subtasks.length, (i) {
-                            final sub = todo.subtasks[i];
-                            return InkWell(
-                              onTap: isProcessing
-                                  ? null
-                                  : () =>
-                                        notifier.toggleSubtask(todo.id, i),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 1),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(
-                                      sub.done
-                                          ? Icons.check_box
-                                          : Icons.check_box_outline_blank,
-                                      size: 18,
-                                      color: sub.done
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.onSurface
-                                                .withValues(alpha: 0.5),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        sub.title,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              decoration: sub.done
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
-                                              color: sub.done
-                                                  ? theme.colorScheme.onSurface
-                                                        .withValues(alpha: 0.5)
-                                                  : theme.colorScheme
-                                                        .onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
                         ],
                         if (todo.startAt != null) ...[
                           const SizedBox(height: 4),
@@ -434,6 +409,7 @@ class TodoItemWidget extends StatelessWidget {
                 ),
             ],
           ),
+        ),
         ),
       ),
     );
