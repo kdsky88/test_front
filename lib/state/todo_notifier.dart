@@ -357,40 +357,20 @@ class TodoNotifier extends ChangeNotifier {
     }
   }
 
-  /// 하위 항목 하나의 완료 상태를 토글. 전체 목록을 통째로 보내 교체.
-  /// 태그 패턴과 동일하게 응답 todo로 로컬 항목만 갱신(낙관적 갱신 없음).
-  Future<(Todo?, String?)> toggleSubtask(String id, int index) async {
-    final idx = _todos.indexWhere((t) => t.id == id);
-    if (idx < 0) return (null, null);
-    final todo = _todos[idx];
-    if (index < 0 || index >= todo.subtasks.length) return (null, null);
-
-    final newSubs = List<Subtask>.of(todo.subtasks);
-    newSubs[index] = newSubs[index].copyWith(done: !newSubs[index].done);
-
-    if (_processingIds.contains(id)) return (null, null);
-    _processingIds.add(id);
-    _itemErrors.remove(id);
-    notifyListeners();
-
+  /// 하위 항목 전체를 통째로 서버에 반영하고, 응답 todo로 로컬 목록을 갱신.
+  /// 상세 시트가 낙관적 상태를 들고 있으므로 여기선 블로킹하지 않는다(연속 체크 드롭 방지).
+  Future<(Todo?, String?)> updateSubtasks(String id, List<Subtask> subtasks) async {
     try {
-      final updated = await TodoApi.updateTodo(id: id, subtasks: newSubs);
-      _processingIds.remove(id);
+      final updated = await TodoApi.updateTodo(id: id, subtasks: subtasks);
       final j = _todos.indexWhere((t) => t.id == id);
       if (j >= 0) {
         _todos = List.of(_todos)..[j] = updated;
+        notifyListeners();
       }
-      notifyListeners();
       return (updated, null);
     } on ApiException catch (e) {
-      _processingIds.remove(id);
-      _itemErrors[id] = e.error.message;
-      notifyListeners();
       return (null, e.error.message);
     } catch (_) {
-      _processingIds.remove(id);
-      _itemErrors[id] = '하위 항목을 변경할 수 없습니다.';
-      notifyListeners();
       return (null, '하위 항목을 변경할 수 없습니다.');
     }
   }
