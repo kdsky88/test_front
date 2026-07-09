@@ -4,6 +4,7 @@ import '../models/todo.dart';
 import '../state/calendar_notifier.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_form_dialog.dart';
+import '../widgets/todo_detail_sheet.dart';
 import '../widgets/priority_badge.dart';
 import 'settings_screen.dart';
 
@@ -502,7 +503,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       color: todo.completed
           ? theme.colorScheme.surfaceContainerLow
           : theme.colorScheme.surface,
-      child: Padding(
+      child: InkWell(
+        onTap: () => _openDetail(context, todo),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -803,6 +807,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -824,6 +829,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     if (result == true && mounted) {
       widget.calendarNotifier.loadCalendar();
     }
+  }
+
+  Future<void> _openDetail(BuildContext context, Todo todo) async {
+    // 시트 안에서 체크/수정/삭제가 일어나므로 닫힌 뒤 달력을 새로고침해 반영.
+    await showTodoDetail(
+      context,
+      todo: todo,
+      notifier: widget.todoNotifier,
+    );
+    if (mounted) widget.calendarNotifier.loadCalendar();
   }
 
   void _openEdit(BuildContext context, Todo todo) async {
