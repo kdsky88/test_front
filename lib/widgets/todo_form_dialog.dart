@@ -3,13 +3,26 @@ import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 
-/// 시작 시각을 정했을 때 쓸 마감 기본값.
-/// 마감이 없거나 시작 이후가 아니면 시작+1시간, 이미 시작보다 늦게 잡혀 있으면 그대로 둔다.
-DateTime resolveDefaultDue(DateTime start, DateTime? currentDue) {
-  if (currentDue == null || !currentDue.isAfter(start)) {
-    return start.add(const Duration(hours: 1));
+/// 시작 시각이 바뀌면 마감도 함께 이동시킬 값.
+/// 이전 시작·마감이 있으면 그 간격만큼 마감을 평행 이동(같이 움직임),
+/// 없으면 시작+1시간. 결과가 시작 이후가 아니면 시작+1시간으로 보정.
+DateTime resolveDueForStart(
+  DateTime newStart,
+  DateTime? oldStart,
+  DateTime? currentDue,
+) {
+  DateTime due;
+  if (oldStart != null && currentDue != null) {
+    due = currentDue.add(newStart.difference(oldStart)); // 간격 유지 평행 이동
+  } else if (currentDue != null) {
+    due = currentDue;
+  } else {
+    due = newStart.add(const Duration(hours: 1));
   }
-  return currentDue;
+  if (!due.isAfter(newStart)) {
+    due = newStart.add(const Duration(hours: 1));
+  }
+  return due;
 }
 
 class TodoFormDialog extends StatefulWidget {
@@ -290,17 +303,19 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     );
     if (!mounted || time == null) return;
 
+    final newStart = DateTime(
+      picked.year,
+      picked.month,
+      picked.day,
+      time.hour,
+      time.minute,
+    );
+    // 시작을 바꾸면 마감도 같은 간격을 유지하며 따라 이동.
+    final newDue = resolveDueForStart(newStart, _startAt, _dueAt);
     setState(() {
-      _startAt = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        time.hour,
-        time.minute,
-      );
+      _startAt = newStart;
+      _dueAt = newDue;
       _startAtError = null;
-      // 마감이 비었거나 시작보다 앞/같으면 시작+1시간으로 기본 채움(늦게 잡은 마감은 유지).
-      _dueAt = resolveDefaultDue(_startAt!, _dueAt);
       _dueAtError = null;
     });
   }
