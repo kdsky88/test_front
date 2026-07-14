@@ -3,6 +3,15 @@ import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../state/todo_notifier.dart';
 
+/// 시작 시각을 정했을 때 쓸 마감 기본값.
+/// 마감이 없거나 시작 이후가 아니면 시작+1시간, 이미 시작보다 늦게 잡혀 있으면 그대로 둔다.
+DateTime resolveDefaultDue(DateTime start, DateTime? currentDue) {
+  if (currentDue == null || !currentDue.isAfter(start)) {
+    return start.add(const Duration(hours: 1));
+  }
+  return currentDue;
+}
+
 class TodoFormDialog extends StatefulWidget {
   final Todo? todo;
   final TodoNotifier notifier;
@@ -290,6 +299,9 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         time.minute,
       );
       _startAtError = null;
+      // 마감이 비었거나 시작보다 앞/같으면 시작+1시간으로 기본 채움(늦게 잡은 마감은 유지).
+      _dueAt = resolveDefaultDue(_startAt!, _dueAt);
+      _dueAtError = null;
     });
   }
 
