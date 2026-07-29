@@ -96,6 +96,7 @@ class TodoApi {
     String? dueAt,
     String? recurrence,
     String? assignedToEmail,
+    String? tripId,
     List<Subtask>? subtasks,
   }) async {
     final body = <String, dynamic>{
@@ -107,6 +108,7 @@ class TodoApi {
     if (startAt != null) body['startAt'] = startAt;
     if (dueAt != null) body['dueAt'] = dueAt;
     if (recurrence != null) body['recurrence'] = recurrence;
+    if (tripId != null) body['tripId'] = tripId;
     if (assignedToEmail != null && assignedToEmail.isNotEmpty) {
       body['assignedToEmail'] = assignedToEmail;
     }
@@ -137,12 +139,14 @@ class TodoApi {
     TodoPriority? priority,
     String? recurrence,
     String? assignedToEmail,
+    String? tripId,
     List<Subtask>? subtasks,
     bool clearDescription = false,
     bool clearNote = false,
     bool clearStartAt = false,
     bool clearDueAt = false,
     bool clearAssignedTo = false,
+    bool clearTrip = false,
   }) async {
     final body = <String, dynamic>{};
     if (title != null) body['title'] = title;
@@ -173,6 +177,11 @@ class TodoApi {
       body['assignedToEmail'] = null;
     } else if (assignedToEmail != null && assignedToEmail.isNotEmpty) {
       body['assignedToEmail'] = assignedToEmail;
+    }
+    if (clearTrip) {
+      body['tripId'] = null;
+    } else if (tripId != null) {
+      body['tripId'] = tripId;
     }
     // null = 하위 항목 미변경, 리스트(빈 것 포함) = 통째로 교체.
     if (subtasks != null) {

@@ -178,6 +178,8 @@ class _TodoDetailSheetState extends State<_TodoDetailSheet> {
                 ),
               ],
               const SizedBox(height: 14),
+              if (todo.tripTitle != null)
+                _infoRow(theme, Icons.luggage_outlined, '여행', todo.tripTitle!),
               if (todo.startAt != null)
                 _infoRow(
                   theme,

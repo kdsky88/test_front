@@ -72,6 +72,8 @@ class Todo {
   final String? ownerEmail;
   final String? assignedToEmail;
   final String? assignedToName;
+  final String? tripId;
+  final String? tripTitle;
 
   const Todo({
     required this.id,
@@ -92,6 +94,8 @@ class Todo {
     this.ownerEmail,
     this.assignedToEmail,
     this.assignedToName,
+    this.tripId,
+    this.tripTitle,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
@@ -118,6 +122,8 @@ class Todo {
       ownerEmail: json['ownerEmail'] as String?,
       assignedToEmail: json['assignedToEmail'] as String?,
       assignedToName: json['assignedToName'] as String?,
+      tripId: json['tripId'] as String?,
+      tripTitle: json['tripTitle'] as String?,
     );
   }
 
@@ -195,6 +201,8 @@ class Todo {
       tags: tags,
       subtasks: subtasks,
       assignee: assignee ?? this.assignee,
+      tripId: tripId,
+      tripTitle: tripTitle,
     );
   }
 }

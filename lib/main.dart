@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/todo_list_screen.dart';
 import 'screens/calendar_screen.dart';
+import 'screens/trips_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/auth_api.dart';
@@ -65,9 +66,10 @@ class _TodoAppState extends State<TodoApp> {
     // arrives. Tab 0 = 달력, tab 1 = 목록.
     if (index == 0) {
       _calendarNotifier.loadCalendar(silent: true);
-    } else {
+    } else if (index == 1) {
       _todoNotifier.loadTodos(silent: true);
     }
+    // 여행 탭(2)은 자체 상태 관리(진입 로드 + 당겨서 새로고침).
   }
 
   void _onAuthenticated() {
@@ -154,6 +156,7 @@ class _TodoAppState extends State<TodoApp> {
                     notifier: _todoNotifier,
                     onLogout: _logout,
                   ),
+                  TripsScreen(onLogout: _logout),
                 ],
               ),
               bottomNavigationBar: BottomNavigationBar(
@@ -169,6 +172,11 @@ class _TodoAppState extends State<TodoApp> {
                     icon: Icon(Icons.list_alt_outlined),
                     activeIcon: Icon(Icons.list_alt),
                     label: '목록',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.luggage_outlined),
+                    activeIcon: Icon(Icons.luggage),
+                    label: '여행',
                   ),
                 ],
               ),

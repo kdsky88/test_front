@@ -330,6 +330,41 @@ class TodoItemWidget extends StatelessWidget {
                             ],
                           ),
                         ],
+                        if (todo.tripTitle != null) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.tertiaryContainer,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.luggage_outlined,
+                                    size: 13,
+                                    color: theme.colorScheme.onTertiaryContainer,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    todo.tripTitle!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme.colorScheme.onTertiaryContainer,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                         if (todo.tags.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Wrap(

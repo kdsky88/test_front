@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/todo.dart';
+import '../models/trip.dart';
+import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
 
 /// 시작 시각이 바뀌면 마감도 함께 이동시킬 값.
@@ -51,6 +53,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   DateTime? _dueAt;
   late TodoPriority _priority;
   late TodoRecurrence _recurrence;
+  List<Trip>? _trips; // null=로딩 중, []=없음/로드 실패
+  String? _selectedTripId;
   bool _submitting = false;
   String? _generalError;
   String? _titleError;
@@ -98,6 +102,18 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _priority = widget.todo?.priority ?? TodoPriority.medium;
     _recurrence = widget.todo?.recurrence ?? TodoRecurrence.none;
     _editTags = List.of(widget.todo?.tags ?? []);
+    _selectedTripId = widget.todo?.tripId;
+    _loadTrips();
+  }
+
+  Future<void> _loadTrips() async {
+    try {
+      final trips = await TripApi.getTrips();
+      if (mounted) setState(() => _trips = trips);
+    } catch (_) {
+      // 여행 목록 로드 실패 시 '여행 없음'만 선택 가능(기존 연결은 유지).
+      if (mounted) setState(() => _trips = const []);
+    }
   }
 
   @override
@@ -191,11 +207,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         dueAt: dueAtStr,
         recurrence: _recurrence.apiValue,
         assignedToEmail: assignedEmail.isEmpty ? null : assignedEmail,
+        tripId: _selectedTripId,
         subtasks: List.of(_subtasks),
         clearNote: note == null,
         clearStartAt: _startAt == null,
         clearDueAt: _dueAt == null,
         clearAssignedTo: assignedEmail.isEmpty,
+        clearTrip: _selectedTripId == null,
       );
       if (msg != null) {
         errorMsg = msg;
@@ -225,6 +243,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         dueAt: dueAtStr,
         recurrence: _recurrence.apiValue,
         assignedToEmail: assignedEmail.isEmpty ? null : assignedEmail,
+        tripId: _selectedTripId,
         tags: List.of(_localTags),
         subtasks: List.of(_subtasks),
       );
@@ -415,6 +434,41 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         _tagError = error;
       }
     });
+  }
+
+  Widget _buildTripDropdown(ThemeData theme) {
+    final trips = _trips ?? const <Trip>[];
+    final ids = trips.map((t) => t.id).toSet();
+    final items = <DropdownMenuItem<String?>>[
+      const DropdownMenuItem(value: null, child: Text('여행 없음')),
+      ...trips.map(
+        (t) => DropdownMenuItem(
+          value: t.id,
+          child: Text(t.title, overflow: TextOverflow.ellipsis),
+        ),
+      ),
+    ];
+    // 편집 중인 항목의 여행이 아직/못 불러온 목록에 없으면 현재 값을 표시용으로 추가(드롭다운 값 보장).
+    if (_selectedTripId != null && !ids.contains(_selectedTripId)) {
+      items.add(DropdownMenuItem(
+        value: _selectedTripId,
+        child: Text(widget.todo?.tripTitle ?? '(선택된 여행)', overflow: TextOverflow.ellipsis),
+      ));
+    }
+    return DropdownButtonFormField<String?>(
+      initialValue: _selectedTripId,
+      isExpanded: true,
+      decoration: InputDecoration(
+        isDense: true,
+        border: const OutlineInputBorder(),
+        prefixIcon: const Icon(Icons.luggage_outlined, size: 20),
+        hintText: _trips == null ? '불러오는 중…' : null,
+      ),
+      items: items,
+      onChanged: (_submitting || _trips == null)
+          ? null
+          : (value) => setState(() => _selectedTripId = value),
+    );
   }
 
   Widget _buildDateField({
@@ -614,6 +668,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                   counterText: '',
                 ),
               ),
+              const SizedBox(height: 14),
+              Text('여행', style: labelStyle),
+              const SizedBox(height: 6),
+              _buildTripDropdown(theme),
               const SizedBox(height: 14),
               Text('태그', style: labelStyle),
               const SizedBox(height: 6),
