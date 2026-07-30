@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/trip_api.dart';
+import '../state/todo_notifier.dart';
 import 'trip_detail_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
@@ -16,9 +17,10 @@ String _rangeLabel(Trip t) {
 }
 
 class TripsScreen extends StatefulWidget {
-  const TripsScreen({super.key, required this.onLogout});
+  const TripsScreen({super.key, required this.onLogout, required this.notifier});
 
   final VoidCallback onLogout;
+  final TodoNotifier notifier;
 
   @override
   State<TripsScreen> createState() => _TripsScreenState();
@@ -182,7 +184,7 @@ class _TripsScreenState extends State<TripsScreen> {
           ],
         ),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => TripDetailScreen(trip: trip)),
+          MaterialPageRoute(builder: (_) => TripDetailScreen(trip: trip, notifier: widget.notifier)),
         ),
       ),
     );

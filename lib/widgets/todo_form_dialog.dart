@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
+import '../screens/location_picker_screen.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
 
@@ -32,11 +34,15 @@ class TodoFormDialog extends StatefulWidget {
   final TodoNotifier notifier;
   final DateTime? initialDueAt;
 
+  /// 여행 상세에서 열 때: 이 여행으로 고정(드롭다운 잠금) + 날짜를 여행 기간으로 제한.
+  final Trip? lockedTrip;
+
   const TodoFormDialog({
     super.key,
     this.todo,
     required this.notifier,
     this.initialDueAt,
+    this.lockedTrip,
   });
 
   @override
@@ -55,6 +61,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   late TodoRecurrence _recurrence;
   List<Trip>? _trips; // null=로딩 중, []=없음/로드 실패
   String? _selectedTripId;
+  double? _lat;
+  double? _lng;
+  String? _placeName;
+  bool _locationCleared = false;
   bool _submitting = false;
   String? _generalError;
   String? _titleError;
@@ -78,6 +88,34 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
 
   bool get _isEdit => widget.todo != null;
 
+  // 여행 기간으로 날짜를 제한할지(여행 고정 + 시작·종료일이 모두 있을 때만).
+  bool get _dateConstrained =>
+      widget.lockedTrip?.startDate != null && widget.lockedTrip?.endDate != null;
+
+  DateTime get _pickerFirstDate {
+    if (!_dateConstrained) return DateTime(2000);
+    final s = widget.lockedTrip!.startDate!;
+    return DateTime(s.year, s.month, s.day); // 그 날 00:00
+  }
+
+  DateTime get _pickerLastDate {
+    if (!_dateConstrained) return DateTime(2100);
+    final e = widget.lockedTrip!.endDate!;
+    return DateTime(e.year, e.month, e.day, 23, 59, 59); // 그 날 끝까지 허용
+  }
+
+  DateTime _clampToRange(DateTime d) {
+    if (d.isBefore(_pickerFirstDate)) return _pickerFirstDate;
+    if (d.isAfter(_pickerLastDate)) return _pickerLastDate;
+    return d;
+  }
+
+  // 값이 없을 때 피커 기본: 제약 있으면 여행 시작일, 없으면 오늘.
+  DateTime get _defaultPickDate => _dateConstrained ? _pickerFirstDate : DateTime.now();
+
+  // 장소 UI를 보일 때: 여행에 추가 중이거나, 이미 위치가 있는 항목을 편집할 때.
+  bool get _showLocation => widget.lockedTrip != null || widget.todo?.latitude != null;
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +131,12 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       // 수정: 기존 값 유지
       _startAt = widget.todo!.startAt;
       _dueAt = widget.todo!.dueAt;
+    } else if (_dateConstrained) {
+      // 여행에 추가: 여행 시작일 오전 9시로 기본(오늘은 보통 여행 기간 밖).
+      final s = widget.lockedTrip!.startDate!;
+      final base = DateTime(s.year, s.month, s.day, 9);
+      _startAt = base;
+      _dueAt = base;
     } else {
       // 생성: 달력에서 왔으면 그 날짜, 아니면 오늘로 시작일·마감일 기본 채움
       final base = widget.initialDueAt ?? DateTime.now();
@@ -102,8 +146,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _priority = widget.todo?.priority ?? TodoPriority.medium;
     _recurrence = widget.todo?.recurrence ?? TodoRecurrence.none;
     _editTags = List.of(widget.todo?.tags ?? []);
-    _selectedTripId = widget.todo?.tripId;
-    _loadTrips();
+    // 여행 고정이면 그 여행으로, 아니면 기존 항목의 여행.
+    _selectedTripId = widget.lockedTrip?.id ?? widget.todo?.tripId;
+    // 장소는 편집 시 좌표 유실 방지를 위해 기존 값에서 시드.
+    _lat = widget.todo?.latitude;
+    _lng = widget.todo?.longitude;
+    _placeName = widget.todo?.placeName;
+    if (widget.lockedTrip == null) _loadTrips();
   }
 
   Future<void> _loadTrips() async {
@@ -214,6 +263,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         clearDueAt: _dueAt == null,
         clearAssignedTo: assignedEmail.isEmpty,
         clearTrip: _selectedTripId == null,
+        latitude: _lat,
+        longitude: _lng,
+        placeName: _placeName,
+        clearLocation: _locationCleared,
       );
       if (msg != null) {
         errorMsg = msg;
@@ -244,6 +297,9 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         recurrence: _recurrence.apiValue,
         assignedToEmail: assignedEmail.isEmpty ? null : assignedEmail,
         tripId: _selectedTripId,
+        latitude: _lat,
+        longitude: _lng,
+        placeName: _placeName,
         tags: List.of(_localTags),
         subtasks: List.of(_subtasks),
       );
@@ -274,12 +330,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   }
 
   Future<void> _pickDueAt() async {
-    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _dueAt ?? now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      initialDate: _clampToRange(_dueAt ?? _defaultPickDate),
+      firstDate: _pickerFirstDate,
+      lastDate: _pickerLastDate,
     );
     if (!mounted || picked == null) return;
 
@@ -305,12 +360,11 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   }
 
   Future<void> _pickStartAt() async {
-    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _startAt ?? now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      initialDate: _clampToRange(_startAt ?? _defaultPickDate),
+      firstDate: _pickerFirstDate,
+      lastDate: _pickerLastDate,
     );
     if (!mounted || picked == null) return;
 
@@ -329,8 +383,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       time.hour,
       time.minute,
     );
-    // 시작을 바꾸면 마감도 같은 간격을 유지하며 따라 이동.
-    final newDue = resolveDueForStart(newStart, _startAt, _dueAt);
+    // 시작을 바꾸면 마감도 같은 간격을 유지하며 따라 이동(여행 범위 밖이면 클램프).
+    final newDue = _clampToRange(resolveDueForStart(newStart, _startAt, _dueAt));
     setState(() {
       _startAt = newStart;
       _dueAt = newDue;
@@ -436,7 +490,72 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     });
   }
 
+  Widget _buildLocationField() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _submitting ? null : _pickLocation,
+            icon: const Icon(Icons.place_outlined, size: 20),
+            label: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _lat == null ? '지도에서 선택' : (_placeName ?? '지정한 위치'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
+        if (_lat != null)
+          IconButton(
+            tooltip: '장소 제거',
+            icon: const Icon(Icons.clear, size: 18),
+            onPressed: _submitting ? null : _clearLocation,
+          ),
+      ],
+    );
+  }
+
+  Future<void> _pickLocation() async {
+    final result = await Navigator.of(context).push<PickedLocation>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initial: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : null,
+          initialName: _placeName,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _lat = result.lat;
+      _lng = result.lng;
+      _placeName = result.name;
+      _locationCleared = false;
+    });
+  }
+
+  void _clearLocation() {
+    setState(() {
+      _lat = null;
+      _lng = null;
+      _placeName = null;
+      _locationCleared = true; // 편집 시 서버 위치 해제
+    });
+  }
+
   Widget _buildTripDropdown(ThemeData theme) {
+    // 여행 상세에서 열었으면 그 여행으로 고정(읽기 전용).
+    if (widget.lockedTrip != null) {
+      return InputDecorator(
+        decoration: const InputDecoration(
+          isDense: true,
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.luggage, size: 20),
+        ),
+        child: Text(widget.lockedTrip!.title, overflow: TextOverflow.ellipsis),
+      );
+    }
     final trips = _trips ?? const <Trip>[];
     final ids = trips.map((t) => t.id).toSet();
     final items = <DropdownMenuItem<String?>>[
@@ -673,6 +792,12 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
               const SizedBox(height: 6),
               _buildTripDropdown(theme),
               const SizedBox(height: 14),
+              if (_showLocation) ...[
+                Text('장소', style: labelStyle),
+                const SizedBox(height: 6),
+                _buildLocationField(),
+                const SizedBox(height: 14),
+              ],
               Text('태그', style: labelStyle),
               const SizedBox(height: 6),
               Row(

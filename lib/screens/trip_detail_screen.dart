@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
-import '../services/todo_api.dart';
 import '../services/trip_api.dart';
-import 'location_picker_screen.dart';
+import '../state/todo_notifier.dart';
+import '../widgets/todo_form_dialog.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
 final _itemFmt = DateFormat('M/d(E) HH:mm', 'ko');
 
 class TripDetailScreen extends StatefulWidget {
-  const TripDetailScreen({super.key, required this.trip});
+  const TripDetailScreen({super.key, required this.trip, required this.notifier});
 
   final Trip trip;
+  final TodoNotifier notifier;
 
   @override
   State<TripDetailScreen> createState() => _TripDetailScreenState();
@@ -58,9 +58,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _addItem() async {
+    // 달력에서 쓰는 리치 폼 재사용: 여행 고정 + 날짜는 여행 기간으로 제한.
     final added = await showDialog<bool>(
       context: context,
-      builder: (_) => _AddItemDialog(trip: widget.trip),
+      builder: (_) => TodoFormDialog(notifier: widget.notifier, lockedTrip: widget.trip),
     );
     if (added == true) _load();
   }
@@ -175,160 +176,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   ),
               ],
             ),
-    );
-  }
-}
-
-/// 이 여행에 일정 항목 추가(제목 + 선택적 일시). tripId를 고정해 생성.
-class _AddItemDialog extends StatefulWidget {
-  const _AddItemDialog({required this.trip});
-
-  final Trip trip;
-
-  @override
-  State<_AddItemDialog> createState() => _AddItemDialogState();
-}
-
-class _AddItemDialogState extends State<_AddItemDialog> {
-  final _titleController = TextEditingController();
-  DateTime? _when;
-  double? _lat;
-  double? _lng;
-  String? _placeName;
-  bool _submitting = false;
-  String? _error;
-
-  Future<void> _pickLocation() async {
-    final result = await Navigator.of(context).push<PickedLocation>(
-      MaterialPageRoute(
-        builder: (_) => LocationPickerScreen(
-          initial: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : null,
-          initialName: _placeName,
-        ),
-      ),
-    );
-    if (result == null || !mounted) return;
-    setState(() {
-      _lat = result.lat;
-      _lng = result.lng;
-      _placeName = result.name;
-      // 장소만 정하고 제목이 비어 있으면 장소명으로 채워줌.
-      if (_titleController.text.trim().isEmpty && result.name != null) {
-        _titleController.text = result.name!;
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickWhen() async {
-    final base = widget.trip.startDate ?? DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _when ?? base,
-      firstDate: DateTime(base.year - 1),
-      lastDate: DateTime(base.year + 5),
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_when ?? DateTime(base.year, base.month, base.day, 9)),
-    );
-    if (!mounted) return;
-    setState(() {
-      _when = DateTime(date.year, date.month, date.day, time?.hour ?? 9, time?.minute ?? 0);
-    });
-  }
-
-  Future<void> _submit() async {
-    final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      setState(() => _error = '일정 이름을 입력해주세요.');
-      return;
-    }
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
-    try {
-      await TodoApi.createTodo(
-        title: title,
-        priority: TodoPriority.medium,
-        tripId: widget.trip.id,
-        dueAt: _when?.toUtc().toIso8601String(),
-        latitude: _lat,
-        longitude: _lng,
-        placeName: _placeName,
-      );
-      if (mounted) Navigator.pop(context, true);
-    } on ApiException catch (e) {
-      setState(() {
-        _error = e.error.message;
-        _submitting = false;
-      });
-    } catch (_) {
-      setState(() {
-        _error = '저장에 실패했습니다.';
-        _submitting = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('일정 추가'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextField(
-            controller: _titleController,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: '일정 이름',
-              hintText: '예: 성산일출봉',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _pickWhen,
-            icon: const Icon(Icons.schedule),
-            label: Text(_when == null ? '일시 (선택)' : _itemFmt.format(_when!)),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _pickLocation,
-            icon: const Icon(Icons.place_outlined),
-            label: Text(
-              _lat == null ? '장소 (선택)' : (_placeName ?? '지정한 위치'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.pop(context, false),
-          child: const Text('취소'),
-        ),
-        FilledButton(
-          onPressed: _submitting ? null : _submit,
-          child: _submitting
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('추가'),
-        ),
-      ],
     );
   }
 }

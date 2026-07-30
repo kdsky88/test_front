@@ -156,7 +156,7 @@ class _TodoAppState extends State<TodoApp> {
                     notifier: _todoNotifier,
                     onLogout: _logout,
                   ),
-                  TripsScreen(onLogout: _logout),
+                  TripsScreen(onLogout: _logout, notifier: _todoNotifier),
                 ],
               ),
               bottomNavigationBar: BottomNavigationBar(

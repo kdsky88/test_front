@@ -289,6 +289,9 @@ class TodoNotifier extends ChangeNotifier {
     String? recurrence,
     String? assignedToEmail,
     String? tripId,
+    double? latitude,
+    double? longitude,
+    String? placeName,
     List<String> tags = const [],
     List<Subtask> subtasks = const [],
   }) async {
@@ -303,6 +306,9 @@ class TodoNotifier extends ChangeNotifier {
         recurrence: recurrence,
         assignedToEmail: assignedToEmail,
         tripId: tripId,
+        latitude: latitude,
+        longitude: longitude,
+        placeName: placeName,
         subtasks: subtasks,
       );
       for (final tag in tags) {
@@ -389,6 +395,9 @@ class TodoNotifier extends ChangeNotifier {
     String? recurrence,
     String? assignedToEmail,
     String? tripId,
+    double? latitude,
+    double? longitude,
+    String? placeName,
     List<Subtask>? subtasks,
     bool clearDescription = false,
     bool clearNote = false,
@@ -396,6 +405,7 @@ class TodoNotifier extends ChangeNotifier {
     bool clearDueAt = false,
     bool clearAssignedTo = false,
     bool clearTrip = false,
+    bool clearLocation = false,
   }) async {
     try {
       final updated = await TodoApi.updateTodo(
@@ -409,6 +419,9 @@ class TodoNotifier extends ChangeNotifier {
         recurrence: recurrence,
         assignedToEmail: assignedToEmail,
         tripId: tripId,
+        latitude: latitude,
+        longitude: longitude,
+        placeName: placeName,
         subtasks: subtasks,
         clearDescription: clearDescription,
         clearNote: clearNote,
@@ -416,6 +429,7 @@ class TodoNotifier extends ChangeNotifier {
         clearDueAt: clearDueAt,
         clearAssignedTo: clearAssignedTo,
         clearTrip: clearTrip,
+        clearLocation: clearLocation,
       );
       onMutated?.call();
       await loadTodos();
