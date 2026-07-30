@@ -74,6 +74,9 @@ class Todo {
   final String? assignedToName;
   final String? tripId;
   final String? tripTitle;
+  final double? latitude;
+  final double? longitude;
+  final String? placeName;
 
   const Todo({
     required this.id,
@@ -96,6 +99,9 @@ class Todo {
     this.assignedToName,
     this.tripId,
     this.tripTitle,
+    this.latitude,
+    this.longitude,
+    this.placeName,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) {
@@ -124,6 +130,9 @@ class Todo {
       assignedToName: json['assignedToName'] as String?,
       tripId: json['tripId'] as String?,
       tripTitle: json['tripTitle'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      placeName: json['placeName'] as String?,
     );
   }
 
@@ -203,6 +212,9 @@ class Todo {
       assignee: assignee ?? this.assignee,
       tripId: tripId,
       tripTitle: tripTitle,
+      latitude: latitude,
+      longitude: longitude,
+      placeName: placeName,
     );
   }
 }

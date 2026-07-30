@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/todo_api.dart';
 import '../services/trip_api.dart';
+import 'location_picker_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
 final _itemFmt = DateFormat('M/d(E) HH:mm', 'ko');
@@ -155,7 +157,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           color: todo.completed ? Theme.of(context).colorScheme.outline : null,
         ),
       ),
-      subtitle: when == null ? null : Text(_itemFmt.format(when.toLocal())),
+      subtitle: (when == null && todo.placeName == null)
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (when != null) Text(_itemFmt.format(when.toLocal())),
+                if (todo.placeName != null)
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined, size: 13),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(todo.placeName!, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -173,8 +192,32 @@ class _AddItemDialog extends StatefulWidget {
 class _AddItemDialogState extends State<_AddItemDialog> {
   final _titleController = TextEditingController();
   DateTime? _when;
+  double? _lat;
+  double? _lng;
+  String? _placeName;
   bool _submitting = false;
   String? _error;
+
+  Future<void> _pickLocation() async {
+    final result = await Navigator.of(context).push<PickedLocation>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initial: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : null,
+          initialName: _placeName,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _lat = result.lat;
+      _lng = result.lng;
+      _placeName = result.name;
+      // 장소만 정하고 제목이 비어 있으면 장소명으로 채워줌.
+      if (_titleController.text.trim().isEmpty && result.name != null) {
+        _titleController.text = result.name!;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -217,6 +260,9 @@ class _AddItemDialogState extends State<_AddItemDialog> {
         priority: TodoPriority.medium,
         tripId: widget.trip.id,
         dueAt: _when?.toUtc().toIso8601String(),
+        latitude: _lat,
+        longitude: _lng,
+        placeName: _placeName,
       );
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
@@ -254,6 +300,16 @@ class _AddItemDialogState extends State<_AddItemDialog> {
             onPressed: _pickWhen,
             icon: const Icon(Icons.schedule),
             label: Text(_when == null ? '일시 (선택)' : _itemFmt.format(_when!)),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _pickLocation,
+            icon: const Icon(Icons.place_outlined),
+            label: Text(
+              _lat == null ? '장소 (선택)' : (_placeName ?? '지정한 위치'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),

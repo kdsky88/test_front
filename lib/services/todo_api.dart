@@ -97,6 +97,9 @@ class TodoApi {
     String? recurrence,
     String? assignedToEmail,
     String? tripId,
+    double? latitude,
+    double? longitude,
+    String? placeName,
     List<Subtask>? subtasks,
   }) async {
     final body = <String, dynamic>{
@@ -109,6 +112,11 @@ class TodoApi {
     if (dueAt != null) body['dueAt'] = dueAt;
     if (recurrence != null) body['recurrence'] = recurrence;
     if (tripId != null) body['tripId'] = tripId;
+    if (latitude != null && longitude != null) {
+      body['latitude'] = latitude;
+      body['longitude'] = longitude;
+      body['placeName'] = placeName;
+    }
     if (assignedToEmail != null && assignedToEmail.isNotEmpty) {
       body['assignedToEmail'] = assignedToEmail;
     }
@@ -140,6 +148,9 @@ class TodoApi {
     String? recurrence,
     String? assignedToEmail,
     String? tripId,
+    double? latitude,
+    double? longitude,
+    String? placeName,
     List<Subtask>? subtasks,
     bool clearDescription = false,
     bool clearNote = false,
@@ -147,6 +158,7 @@ class TodoApi {
     bool clearDueAt = false,
     bool clearAssignedTo = false,
     bool clearTrip = false,
+    bool clearLocation = false,
   }) async {
     final body = <String, dynamic>{};
     if (title != null) body['title'] = title;
@@ -182,6 +194,16 @@ class TodoApi {
       body['tripId'] = null;
     } else if (tripId != null) {
       body['tripId'] = tripId;
+    }
+    // 장소는 한 단위: 지우면 셋 다 null, 설정하면 좌표+이름 함께.
+    if (clearLocation) {
+      body['latitude'] = null;
+      body['longitude'] = null;
+      body['placeName'] = null;
+    } else if (latitude != null && longitude != null) {
+      body['latitude'] = latitude;
+      body['longitude'] = longitude;
+      body['placeName'] = placeName;
     }
     // null = 하위 항목 미변경, 리스트(빈 것 포함) = 통째로 교체.
     if (subtasks != null) {

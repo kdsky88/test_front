@@ -2,7 +2,7 @@ name: test_front
 description: "Todo List management app."
 publish_to: 'none'
 
-version: 1.8.5+23
+version: 1.8.6+24
 
 environment:
   sdk: ^3.12.1
@@ -19,6 +19,8 @@ dependencies:
   shared_preferences: ^2.3.2
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
 
 dev_dependencies:
   flutter_test:
