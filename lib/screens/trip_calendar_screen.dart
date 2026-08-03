@@ -266,7 +266,7 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
 
     Color? dayColor;
     if (!enabled) {
-      dayColor = theme.colorScheme.onSurface.withValues(alpha: 0.25); // disabled 흐리게
+      dayColor = theme.colorScheme.onSurface.withValues(alpha: 0.4); // disabled: 어두운 배경 위 취소선
     } else if (isSelected) {
       dayColor = Colors.white;
     } else if (isToday) {
@@ -281,8 +281,11 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
     return GestureDetector(
       onTap: enabled ? () => setState(() => _selectedDate = date) : null,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
+      child: Container(
         height: 64,
+        decoration: enabled
+            ? null
+            : BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.12)),
         child: Column(
           children: [
             Container(
@@ -302,6 +305,8 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
                   fontSize: 13,
                   fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
                   color: dayColor,
+                  decoration: enabled ? null : TextDecoration.lineThrough,
+                  decorationColor: dayColor,
                 ),
               ),
             ),
