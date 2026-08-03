@@ -4,7 +4,7 @@ import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
-import '../widgets/todo_form_dialog.dart';
+import 'trip_calendar_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
 final _itemFmt = DateFormat('M/d(E) HH:mm', 'ko');
@@ -58,12 +58,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _addItem() async {
-    // 달력에서 쓰는 리치 폼 재사용: 여행 고정 + 날짜는 여행 기간으로 제한.
-    final added = await showDialog<bool>(
-      context: context,
-      builder: (_) => TodoFormDialog(notifier: widget.notifier, lockedTrip: widget.trip),
+    // 여행 기간 전체화면 달력에서 날짜를 고르고 추가(그 안에서 리치 폼).
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TripCalendarScreen(trip: widget.trip, notifier: widget.notifier),
+      ),
     );
-    if (added == true) _load();
+    _load(); // 돌아오면 목록 갱신
   }
 
   String get _rangeLabel {

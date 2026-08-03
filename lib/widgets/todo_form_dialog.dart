@@ -132,9 +132,9 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       _startAt = widget.todo!.startAt;
       _dueAt = widget.todo!.dueAt;
     } else if (_dateConstrained) {
-      // 여행에 추가: 여행 시작일 오전 9시로 기본(오늘은 보통 여행 기간 밖).
-      final s = widget.lockedTrip!.startDate!;
-      final base = DateTime(s.year, s.month, s.day, 9);
+      // 여행에 추가: 달력에서 고른 날짜(initialDueAt) 09시, 없으면 여행 시작일. 범위로 클램프.
+      final picked = widget.initialDueAt ?? widget.lockedTrip!.startDate!;
+      final base = _clampToRange(DateTime(picked.year, picked.month, picked.day, 9));
       _startAt = base;
       _dueAt = base;
     } else {
