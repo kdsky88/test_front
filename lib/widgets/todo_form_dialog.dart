@@ -143,6 +143,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       _startAt = base;
       _dueAt = base;
     }
+    // 여행 항목 신규 생성은 마감일 없음(필드도 숨김).
+    if (widget.lockedTrip != null && widget.todo == null) _dueAt = null;
     _priority = widget.todo?.priority ?? TodoPriority.medium;
     _recurrence = widget.todo?.recurrence ?? TodoRecurrence.none;
     _editTags = List.of(widget.todo?.tags ?? []);
@@ -387,7 +389,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     final newDue = _clampToRange(resolveDueForStart(newStart, _startAt, _dueAt));
     setState(() {
       _startAt = newStart;
-      _dueAt = newDue;
+      if (widget.lockedTrip == null) _dueAt = newDue; // 여행 항목은 마감일 없음
       _startAtError = null;
       _dueAtError = null;
     });
@@ -633,6 +635,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final currentTags = _isEdit ? _editTags : _localTags;
+    // 여행 컨텍스트에서는 마감일·반복·여행 선택을 숨김(불필요).
+    final inTrip = widget.lockedTrip != null;
     final labelStyle = theme.textTheme.labelLarge?.copyWith(
       color: theme.colorScheme.primary,
       fontWeight: FontWeight.w600,
@@ -725,52 +729,54 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                 }),
                 errorText: _startAtError,
               ),
-              const SizedBox(height: 14),
-              Text('마감일', style: labelStyle),
-              const SizedBox(height: 6),
-              _buildDateField(
-                label: '마감일',
-                value: _dueAt,
-                onPick: _pickDueAt,
-                onClear: () => setState(() {
-                  _dueAt = null;
-                  _startAtError = null;
-                }),
-                errorText: _dueAtError,
-              ),
-              const SizedBox(height: 14),
-              Text('반복', style: labelStyle),
-              const SizedBox(height: 6),
-              SegmentedButton<TodoRecurrence>(
-                segments: TodoRecurrence.values
-                    .map(
-                      (r) => ButtonSegment<TodoRecurrence>(
-                        value: r,
-                        label: Text(r.shortLabel),
+              if (!inTrip) ...[
+                const SizedBox(height: 14),
+                Text('마감일', style: labelStyle),
+                const SizedBox(height: 6),
+                _buildDateField(
+                  label: '마감일',
+                  value: _dueAt,
+                  onPick: _pickDueAt,
+                  onClear: () => setState(() {
+                    _dueAt = null;
+                    _startAtError = null;
+                  }),
+                  errorText: _dueAtError,
+                ),
+                const SizedBox(height: 14),
+                Text('반복', style: labelStyle),
+                const SizedBox(height: 6),
+                SegmentedButton<TodoRecurrence>(
+                  segments: TodoRecurrence.values
+                      .map(
+                        (r) => ButtonSegment<TodoRecurrence>(
+                          value: r,
+                          label: Text(r.shortLabel),
+                        ),
+                      )
+                      .toList(),
+                  selected: {_recurrence},
+                  onSelectionChanged: _submitting
+                      ? null
+                      : (selected) {
+                          setState(() {
+                            _recurrence = selected.first;
+                            _recurrenceError = null;
+                          });
+                        },
+                ),
+                if (_recurrenceError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _recurrenceError!,
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                        fontSize: 12,
                       ),
-                    )
-                    .toList(),
-                selected: {_recurrence},
-                onSelectionChanged: _submitting
-                    ? null
-                    : (selected) {
-                        setState(() {
-                          _recurrence = selected.first;
-                          _recurrenceError = null;
-                        });
-                      },
-              ),
-              if (_recurrenceError != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    _recurrenceError!,
-                    style: TextStyle(
-                      color: theme.colorScheme.error,
-                      fontSize: 12,
                     ),
                   ),
-                ),
+              ],
               const SizedBox(height: 14),
               Text('담당자 (공유)', style: labelStyle),
               const SizedBox(height: 6),
@@ -787,10 +793,12 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                   counterText: '',
                 ),
               ),
-              const SizedBox(height: 14),
-              Text('여행', style: labelStyle),
-              const SizedBox(height: 6),
-              _buildTripDropdown(theme),
+              if (!inTrip) ...[
+                const SizedBox(height: 14),
+                Text('여행', style: labelStyle),
+                const SizedBox(height: 6),
+                _buildTripDropdown(theme),
+              ],
               const SizedBox(height: 14),
               if (_showLocation) ...[
                 Text('장소', style: labelStyle),
