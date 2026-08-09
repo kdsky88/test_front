@@ -853,12 +853,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final selected = widget.calendarNotifier.selectedDate;
     // KST midnight for the selected date: local midnight, form converts to UTC Z
     final initialDueAt = DateTime(selected.year, selected.month, selected.day);
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => TodoFormDialog(
-        notifier: widget.todoNotifier,
-        initialDueAt: initialDueAt,
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TodoFormDialog(
+          notifier: widget.todoNotifier,
+          initialDueAt: initialDueAt,
+        ),
       ),
     );
     if (result == true && mounted) {
@@ -877,10 +877,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _openEdit(BuildContext context, Todo todo) async {
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => TodoFormDialog(todo: todo, notifier: widget.todoNotifier),
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TodoFormDialog(todo: todo, notifier: widget.todoNotifier),
+      ),
     );
     if (result == true && mounted) {
       widget.calendarNotifier.loadCalendar();

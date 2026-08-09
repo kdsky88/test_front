@@ -4,10 +4,13 @@ import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
+import '../theme.dart';
+import '../widgets/todo_form_dialog.dart';
 import 'trip_calendar_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
-final _itemFmt = DateFormat('M/d(E) HH:mm', 'ko');
+final _dayFmt = DateFormat('M/d (E)', 'ko');
+final _timeFmt = DateFormat('HH:mm');
 
 class TripDetailScreen extends StatefulWidget {
   const TripDetailScreen({super.key, required this.trip, required this.notifier});
@@ -58,125 +61,298 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _addItem() async {
-    // 여행 기간 전체화면 달력에서 날짜를 고르고 추가(그 안에서 리치 폼).
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TripCalendarScreen(trip: widget.trip, notifier: widget.notifier),
       ),
     );
-    _load(); // 돌아오면 목록 갱신
+    _load();
   }
 
-  String get _rangeLabel {
-    final t = widget.trip;
-    if (t.startDate == null && t.endDate == null) return '기간 미정';
-    final start = t.startDate == null ? '?' : _dateFmt.format(t.startDate!);
-    final end = t.endDate == null ? '?' : _dateFmt.format(t.endDate!);
-    return t.startDate != null && t.endDate == null ? start : '$start ~ $end';
+  Future<void> _editItem(Todo todo) async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TodoFormDialog(
+          notifier: widget.notifier,
+          lockedTrip: widget.trip,
+          todo: todo,
+        ),
+      ),
+    );
+    if (ok == true) _load();
+  }
+
+  List<DateTime> get _days {
+    final s = widget.trip.startDate, e = widget.trip.endDate;
+    if (s == null || e == null) return const [];
+    final start = DateTime(s.year, s.month, s.day);
+    final end = DateTime(e.year, e.month, e.day);
+    final days = <DateTime>[];
+    for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
+      days.add(d);
+    }
+    return days;
+  }
+
+  List<Todo> _itemsOn(DateTime day) {
+    final d = DateTime(day.year, day.month, day.day);
+    return (_todos ?? const []).where((t) {
+      final from = (t.startAt ?? t.dueAt)?.toLocal();
+      final to = (t.dueAt ?? t.startAt)?.toLocal();
+      if (from == null || to == null) return false;
+      final f = DateTime(from.year, from.month, from.day);
+      final tt = DateTime(to.year, to.month, to.day);
+      return !d.isBefore(f) && !d.isAfter(tt);
+    }).toList()
+      ..sort((a, b) {
+        final at = (a.startAt ?? a.dueAt);
+        final bt = (b.startAt ?? b.dueAt);
+        if (at == null || bt == null) return 0;
+        return at.compareTo(bt);
+      });
   }
 
   @override
   Widget build(BuildContext context) {
+    final cover = AppTheme.coverFor(widget.trip.id);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.trip.title)),
+      appBar: AppBar(
+        title: Text(widget.trip.title),
+        backgroundColor: cover,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addItem,
         icon: const Icon(Icons.add),
         label: const Text('일정 추가'),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _header(),
-          const Divider(height: 1),
-          Expanded(child: RefreshIndicator(onRefresh: _load, child: _buildBody())),
-        ],
-      ),
+      body: RefreshIndicator(onRefresh: _load, child: _buildBody(cover)),
     );
   }
 
-  Widget _header() {
+  Widget _buildBody(Color cover) {
+    if (_loading) {
+      return ListView(children: const [SizedBox(height: 200), Center(child: CircularProgressIndicator())]);
+    }
+    if (_error != null) {
+      return ListView(children: [
+        _hero(cover),
+        const SizedBox(height: 80),
+        Center(child: Text(_error!)),
+        const SizedBox(height: 12),
+        Center(child: OutlinedButton(onPressed: _load, child: const Text('다시 시도'))),
+      ]);
+    }
+
+    final days = _days;
+    final children = <Widget>[_hero(cover)];
+
+    if (days.isEmpty) {
+      // 기간 미정: 전체 항목을 한 목록으로.
+      final all = _todos ?? const [];
+      if (all.isEmpty) {
+        children.add(_emptyState());
+      } else {
+        children.addAll(all.map(_itemCard));
+      }
+    } else {
+      final matched = <String>{};
+      for (var i = 0; i < days.length; i++) {
+        final items = _itemsOn(days[i]);
+        for (final t in items) {
+          matched.add(t.id);
+        }
+        children.add(_daySection(i + 1, days[i], items, cover));
+      }
+      // 기간에 안 잡힌 항목(날짜 없음 등)은 '그 외'로.
+      final leftovers = (_todos ?? const []).where((t) => !matched.contains(t.id)).toList();
+      if (leftovers.isNotEmpty) {
+        children.add(_sectionHeader('그 외', null, cover));
+        children.addAll(leftovers.map(_itemCard));
+      }
+    }
+
+    children.add(const SizedBox(height: 88)); // FAB 여백
+    return ListView(padding: const EdgeInsets.only(bottom: 8), children: children);
+  }
+
+  Widget _hero(Color cover) {
     final t = widget.trip;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
+    final dday = t.dDayLabel;
+    final range = () {
+      if (t.startDate == null && t.endDate == null) return '기간 미정';
+      final s = t.startDate == null ? '?' : _dateFmt.format(t.startDate!);
+      final e = t.endDate == null ? '?' : _dateFmt.format(t.endDate!);
+      return t.startDate != null && t.endDate == null ? s : '$s ~ $e';
+    }();
+    return Container(
+      width: double.infinity,
+      color: cover,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.place_outlined, size: 20),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              [if (t.destination != null) t.destination!, _rangeLabel].join('  ·  '),
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(AppTheme.emojiFor(t.id), style: const TextStyle(fontSize: 44)),
+              const Spacer(),
+              if (dday != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(dday, style: TextStyle(color: cover, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(Icons.place_outlined, size: 16, color: Colors.white),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  [if (t.destination != null) t.destination!, range].join('  ·  '),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) {
-      return ListView(
-        children: [
-          const SizedBox(height: 120),
-          Center(child: Text(_error!)),
-          const SizedBox(height: 12),
-          Center(child: OutlinedButton(onPressed: _load, child: const Text('다시 시도'))),
-        ],
-      );
-    }
-    final todos = _todos ?? const [];
-    if (todos.isEmpty) {
-      return ListView(
-        children: const [
-          SizedBox(height: 120),
-          Icon(Icons.event_note_outlined, size: 52, color: Colors.grey),
-          SizedBox(height: 12),
-          Center(child: Text('아직 일정이 없어요. 일정을 추가해 보세요.')),
-        ],
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: todos.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, indent: 16, endIndent: 16),
-      itemBuilder: (context, i) => _itemTile(todos[i]),
+  Widget _daySection(int dayNo, DateTime date, List<Todo> items, Color cover) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeader('Day $dayNo', _dayFmt.format(date), cover),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+            child: Text('일정 없음',
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
+          )
+        else
+          ...items.map(_itemCard),
+      ],
     );
   }
 
-  Widget _itemTile(Todo todo) {
+  Widget _sectionHeader(String badge, String? sub, Color cover) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: cover.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(badge,
+                style: TextStyle(color: cover, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          if (sub != null) ...[
+            const SizedBox(width: 8),
+            Text(sub, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _itemCard(Todo todo) {
+    final theme = Theme.of(context);
     final when = todo.startAt ?? todo.dueAt;
-    return ListTile(
-      leading: Icon(
-        todo.completed ? Icons.check_circle : Icons.radio_button_unchecked,
-        color: todo.completed ? Colors.green : Theme.of(context).colorScheme.outline,
-      ),
-      title: Text(
-        todo.title,
-        style: TextStyle(
-          decoration: todo.completed ? TextDecoration.lineThrough : null,
-          color: todo.completed ? Theme.of(context).colorScheme.outline : null,
-        ),
-      ),
-      subtitle: (when == null && todo.placeName == null)
-          ? null
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Card(
+        child: InkWell(
+          onTap: () => _editItem(todo),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
               children: [
-                if (when != null) Text(_itemFmt.format(when.toLocal())),
-                if (todo.placeName != null)
-                  Row(
+                // 시간 배지
+                SizedBox(
+                  width: 46,
+                  child: Text(
+                    when != null ? _timeFmt.format(when.toLocal()) : '—',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 34, color: theme.dividerColor),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.place_outlined, size: 13),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(todo.placeName!, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        todo.title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          decoration: todo.completed ? TextDecoration.lineThrough : null,
+                          color: todo.completed ? theme.colorScheme.outline : null,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      if (todo.placeName != null) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(Icons.place_outlined, size: 13, color: theme.colorScheme.onSurfaceVariant),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                todo.placeName!,
+                                style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
+                ),
+                if (todo.completed)
+                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 60),
+      child: Column(
+        children: [
+          Text('🗓️', style: const TextStyle(fontSize: 48)),
+          const SizedBox(height: 12),
+          Text('아직 일정이 없어요',
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('아래 + 버튼으로 첫 일정을 추가해 보세요.',
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+        ],
+      ),
     );
   }
 }

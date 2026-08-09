@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// 라이트: 크림 배경 + 흰 카드 + 어두운 텍스트. 다크: M3 톤 서피스.
 class AppTheme {
   static const Color seed = Color(0xFFEC6A4C); // 따뜻한 코럴
-  static const Color _cream = Color(0xFFFBF6EF); // 샌드/크림 배경
+  static const Color _cream = Color(0xFFF5F4F2); // 중립 오프화이트 배경
   static const double radius = 18;
 
   static ThemeData build(Brightness brightness) {

@@ -641,13 +641,12 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
       color: theme.colorScheme.primary,
       fontWeight: FontWeight.w600,
     );
-    return AlertDialog(
-      title: Text(_isEdit ? '할 일 수정' : '할 일 등록'),
-      content: SizedBox(
-        width: (MediaQuery.of(context).size.width - 80).clamp(280.0, 460.0),
+    return Scaffold(
+      appBar: AppBar(title: Text(_isEdit ? '할 일 수정' : '할 일 등록')),
+      body: SafeArea(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('제목 *', style: labelStyle),
@@ -967,24 +966,19 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _submitting
-              ? null
-              : () => Navigator.of(context).pop(false),
-          child: const Text('취소'),
-        ),
-        FilledButton(
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: FilledButton(
           onPressed: _submitting ? null : _submit,
           child: _submitting
               ? const SizedBox(
-                  width: 16,
-                  height: 16,
+                  width: 18,
+                  height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Text('저장'),
         ),
-      ],
+      ),
     );
   }
 }

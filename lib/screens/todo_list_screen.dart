@@ -692,10 +692,8 @@ class _TodoListScreenState extends State<TodoListScreen> {
   }
 
   void _openCreate(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => TodoFormDialog(notifier: widget.notifier),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TodoFormDialog(notifier: widget.notifier)),
     );
   }
 

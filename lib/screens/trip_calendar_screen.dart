@@ -128,26 +128,26 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
       });
 
   Future<void> _addForSelected() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => TodoFormDialog(
-        notifier: widget.notifier,
-        lockedTrip: widget.trip,
-        initialDueAt: _selectedDate,
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TodoFormDialog(
+          notifier: widget.notifier,
+          lockedTrip: widget.trip,
+          initialDueAt: _selectedDate,
+        ),
       ),
     );
     if (ok == true) _load();
   }
 
   Future<void> _editItem(Todo todo) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => TodoFormDialog(
-        notifier: widget.notifier,
-        lockedTrip: widget.trip,
-        todo: todo,
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TodoFormDialog(
+          notifier: widget.notifier,
+          lockedTrip: widget.trip,
+          todo: todo,
+        ),
       ),
     );
     if (ok == true) _load();
