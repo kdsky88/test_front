@@ -58,6 +58,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 icon: const Icon(Icons.logout),
               ),
             ],
+            // 첫 방문 달(캐시 없음) 백그라운드 로딩 시 상단 얇은 인디케이터.
+            bottom: (n.backgroundLoading && n.calendarData.isEmpty)
+                ? const PreferredSize(
+                    preferredSize: Size.fromHeight(2),
+                    child: LinearProgressIndicator(minHeight: 2),
+                  )
+                : null,
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _openCreate(context),

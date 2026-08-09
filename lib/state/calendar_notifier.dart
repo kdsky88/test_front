@@ -31,6 +31,10 @@ class CalendarNotifier extends ChangeNotifier {
   final Map<String, Map<String, List<Todo>>> _monthCache = {};
   String get _monthKey => '$_year-$_month';
 
+  // 백그라운드(silent) 로딩 중 여부 — 첫 방문 달 상단 얇은 인디케이터용.
+  bool _bgLoading = false;
+  bool get backgroundLoading => _bgLoading;
+
   final Set<String> _processingIds = {};
   final Map<String, String> _itemErrors = {};
 
@@ -81,11 +85,13 @@ class CalendarNotifier extends ChangeNotifier {
   /// [silent] keeps the existing grid on screen during the reload (no loading
   /// state), used for background refresh when the calendar tab is shown.
   Future<void> loadCalendar({bool silent = false}) async {
-    if (!silent) {
+    if (silent) {
+      _bgLoading = true;
+    } else {
       _status = CalendarStatus.loading;
       _error = null;
-      notifyListeners();
     }
+    notifyListeners();
 
     final seq = ++_seq;
     try {
@@ -97,17 +103,26 @@ class CalendarNotifier extends ChangeNotifier {
       };
       _monthCache[_monthKey] = _calendarData;
       _status = CalendarStatus.idle;
+      _bgLoading = false;
       _error = null;
       notifyListeners();
     } on ApiException catch (e) {
       if (seq != _seq) return;
-      if (silent) return; // keep existing data on a background refresh failure
+      _bgLoading = false;
+      if (silent) {
+        notifyListeners(); // 인디케이터만 내림(기존 데이터 유지)
+        return;
+      }
       _status = CalendarStatus.error;
       _error = e.error.message;
       notifyListeners();
     } catch (error) {
       if (seq != _seq) return;
-      if (silent) return;
+      _bgLoading = false;
+      if (silent) {
+        notifyListeners();
+        return;
+      }
       _status = CalendarStatus.error;
       _error = _dataErrorMessage(error);
       notifyListeners();
