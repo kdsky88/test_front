@@ -4,6 +4,7 @@ import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
+import '../theme.dart';
 import 'trip_detail_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
@@ -153,38 +154,104 @@ class _TripsScreenState extends State<TripsScreen> {
   }
 
   Widget _tripCard(Trip trip) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     final dday = trip.dDayLabel;
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: colorScheme.primaryContainer,
-          child: Icon(Icons.map_outlined, color: colorScheme.onPrimaryContainer),
-        ),
-        title: Text(trip.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text([
-          if (trip.destination != null) trip.destination!,
-          _rangeLabel(trip),
-        ].join('  ·  ')),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (dday != null)
-              Chip(
-                label: Text(dday),
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-              ),
-            IconButton(
-              tooltip: '삭제',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _confirmDelete(trip),
+    final cover = AppTheme.coverFor(trip.id);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TripDetailScreen(trip: trip, notifier: widget.notifier),
             ),
-          ],
-        ),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => TripDetailScreen(trip: trip, notifier: widget.notifier)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 컬러 커버: 이모지 + D-day + 메뉴
+              Container(
+                height: 92,
+                color: cover,
+                padding: const EdgeInsets.all(12),
+                child: Stack(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(AppTheme.emojiFor(trip.id), style: const TextStyle(fontSize: 40)),
+                    ),
+                    if (dday != null)
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            dday,
+                            style: TextStyle(
+                              color: cover,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: InkWell(
+                        onTap: () => _confirmDelete(trip),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.more_horiz, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      trip.title,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.place_outlined, size: 15, color: theme.colorScheme.onSurfaceVariant),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            [
+                              if (trip.destination != null) trip.destination!,
+                              _rangeLabel(trip),
+                            ].join('  ·  '),
+                            style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

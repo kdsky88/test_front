@@ -78,10 +78,7 @@ class _TodoListScreenState extends State<TodoListScreen> {
             bottom: n.listStatus == ListStatus.refreshing
                 ? const PreferredSize(
                     preferredSize: Size.fromHeight(2),
-                    child: LinearProgressIndicator(
-                      color: Colors.white,
-                      backgroundColor: Colors.white24,
-                    ),
+                    child: LinearProgressIndicator(),
                   )
                 : null,
           ),

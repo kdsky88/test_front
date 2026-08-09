@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'theme.dart';
 import 'screens/todo_list_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/trips_screen.dart';
@@ -96,45 +97,13 @@ class _TodoAppState extends State<TodoApp> {
     super.dispose();
   }
 
-  ThemeData _buildTheme(Brightness brightness) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2563EB),
-      brightness: brightness,
-    );
-    return ThemeData(
-      colorScheme: colorScheme,
-      useMaterial3: true,
-      appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: TextStyle(
-          color: colorScheme.onPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-      ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        selectedItemColor: colorScheme.primary,
-        unselectedItemColor: colorScheme.onSurfaceVariant,
-        type: BottomNavigationBarType.fixed,
-        elevation: 8,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Todo List',
+      title: '여행 플래너',
       debugShowCheckedModeBanner: false,
-      theme: _buildTheme(Brightness.light),
-      darkTheme: _buildTheme(Brightness.dark),
+      theme: AppTheme.build(Brightness.light),
+      darkTheme: AppTheme.build(Brightness.dark),
       themeMode: ThemeMode.system,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -159,23 +128,23 @@ class _TodoAppState extends State<TodoApp> {
                   TripsScreen(onLogout: _logout, notifier: _todoNotifier),
                 ],
               ),
-              bottomNavigationBar: BottomNavigationBar(
-                currentIndex: _selectedTab,
-                onTap: _onTabSelected,
-                items: const [
-                  BottomNavigationBarItem(
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: _selectedTab,
+                onDestinationSelected: _onTabSelected,
+                destinations: const [
+                  NavigationDestination(
                     icon: Icon(Icons.calendar_month_outlined),
-                    activeIcon: Icon(Icons.calendar_month),
+                    selectedIcon: Icon(Icons.calendar_month),
                     label: '달력',
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.list_alt_outlined),
-                    activeIcon: Icon(Icons.list_alt),
-                    label: '목록',
+                  NavigationDestination(
+                    icon: Icon(Icons.checklist_outlined),
+                    selectedIcon: Icon(Icons.checklist),
+                    label: '할 일',
                   ),
-                  BottomNavigationBarItem(
+                  NavigationDestination(
                     icon: Icon(Icons.luggage_outlined),
-                    activeIcon: Icon(Icons.luggage),
+                    selectedIcon: Icon(Icons.luggage),
                     label: '여행',
                   ),
                 ],
