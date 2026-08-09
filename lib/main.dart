@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'theme.dart';
 import 'screens/todo_list_screen.dart';
@@ -60,6 +61,7 @@ class _TodoAppState extends State<TodoApp> {
 
   void _onTabSelected(int index) {
     if (index == _selectedTab) return;
+    HapticFeedback.selectionClick();
     setState(() => _selectedTab = index);
     // Both views are independent caches, so refresh the one being shown to
     // reflect changes (edit, complete, delete) made on the other tab. The

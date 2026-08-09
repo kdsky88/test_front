@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
@@ -279,7 +280,12 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
 
     final dayItems = _itemsOn(date);
     return GestureDetector(
-      onTap: enabled ? () => setState(() => _selectedDate = date) : null,
+      onTap: enabled
+          ? () {
+              HapticFeedback.selectionClick();
+              setState(() => _selectedDate = date);
+            }
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 64,

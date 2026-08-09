@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../models/todo.dart';
 import '../services/auth_api.dart';
 import '../services/todo_api.dart';
@@ -449,6 +450,7 @@ class TodoNotifier extends ChangeNotifier {
     if (_processingIds.contains(id)) return;
     final todo = _todos.firstWhere((t) => t.id == id);
     final newCompleted = !todo.completed;
+    HapticFeedback.selectionClick();
 
     _processingIds.add(id);
     _itemErrors.remove(id);

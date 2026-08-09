@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
 import '../theme.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/fade_slide_in.dart';
 import 'trip_detail_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
@@ -70,7 +73,10 @@ class _TripsScreenState extends State<TripsScreen> {
       context: context,
       builder: (_) => const _TripFormDialog(),
     );
-    if (created == true) _load();
+    if (created == true) {
+      HapticFeedback.lightImpact();
+      _load();
+    }
   }
 
   Future<void> _confirmDelete(Trip trip) async {
@@ -87,6 +93,7 @@ class _TripsScreenState extends State<TripsScreen> {
     );
     if (ok != true) return;
     try {
+      HapticFeedback.mediumImpact();
       await TripApi.deleteTrip(trip.id);
       _load();
     } catch (_) {
@@ -137,19 +144,19 @@ class _TripsScreenState extends State<TripsScreen> {
     }
     final trips = _trips ?? const [];
     if (trips.isEmpty) {
-      return ListView(
-        children: const [
-          SizedBox(height: 140),
-          Icon(Icons.luggage_outlined, size: 56, color: Colors.grey),
-          SizedBox(height: 12),
-          Center(child: Text('아직 여행이 없어요. 새 여행을 추가해 보세요.')),
-        ],
+      return const EmptyState(
+        emoji: '🧳',
+        title: '아직 여행이 없어요',
+        subtitle: '아래 + 버튼으로 첫 여행을 계획해 보세요.',
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: trips.length,
-      itemBuilder: (context, i) => _tripCard(trips[i]),
+      itemBuilder: (context, i) => FadeSlideIn(
+        delay: Duration(milliseconds: (i * 45).clamp(0, 300)),
+        child: _tripCard(trips[i]),
+      ),
     );
   }
 
