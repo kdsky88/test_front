@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/todo.dart';
 import '../state/calendar_notifier.dart';
@@ -78,7 +79,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       else if (n.status == CalendarStatus.error)
                         _buildCalendarError(context, n)
                       else
-                        _buildCalendarGrid(context, n),
+                        GestureDetector(
+                          onHorizontalDragEnd: (d) => _onCalendarSwipe(d, n),
+                          child: _buildCalendarGrid(context, n),
+                        ),
                       const Divider(height: 1),
                       _buildSelectedDateLabel(context, n),
                       _buildTodoList(context, n),
@@ -163,6 +167,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
   static const Color _saturdayColor = Color(0xFF9AA0A6); // 토요일 회색
   static const int _maxLanes = 5; // 한 주에 표시할 막대 줄 수(고정 → 날짜 높이 통일)
   static const double _laneHeight = 9; // 막대 한 줄 높이(얇게)
+
+  // 좌우 스와이프로 월 이동(왼쪽=다음 달, 오른쪽=이전 달).
+  void _onCalendarSwipe(DragEndDetails d, CalendarNotifier n) {
+    if (n.status == CalendarStatus.loading) return;
+    final v = d.primaryVelocity ?? 0;
+    if (v < -80) {
+      HapticFeedback.mediumImpact();
+      n.nextMonth();
+    } else if (v > 80) {
+      HapticFeedback.mediumImpact();
+      n.prevMonth();
+    }
+  }
 
   Widget _buildCalendarGrid(BuildContext context, CalendarNotifier n) {
     final theme = Theme.of(context);

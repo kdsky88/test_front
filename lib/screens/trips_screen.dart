@@ -74,7 +74,7 @@ class _TripsScreenState extends State<TripsScreen> {
       builder: (_) => const _TripFormDialog(),
     );
     if (created == true) {
-      HapticFeedback.lightImpact();
+      HapticFeedback.mediumImpact();
       _load();
     }
   }
@@ -93,7 +93,7 @@ class _TripsScreenState extends State<TripsScreen> {
     );
     if (ok != true) return;
     try {
-      HapticFeedback.mediumImpact();
+      HapticFeedback.heavyImpact();
       await TripApi.deleteTrip(trip.id);
       _load();
     } catch (_) {

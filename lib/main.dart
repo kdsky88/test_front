@@ -61,7 +61,7 @@ class _TodoAppState extends State<TodoApp> {
 
   void _onTabSelected(int index) {
     if (index == _selectedTab) return;
-    HapticFeedback.selectionClick();
+    HapticFeedback.mediumImpact();
     setState(() => _selectedTab = index);
     // Both views are independent caches, so refresh the one being shown to
     // reflect changes (edit, complete, delete) made on the other tab. The

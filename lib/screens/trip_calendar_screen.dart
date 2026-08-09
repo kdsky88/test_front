@@ -110,6 +110,18 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
         (_year == _rangeEnd.year && _month < _rangeEnd.month);
   }
 
+  // 좌우 스와이프로 월 이동(여행 기간 내에서만).
+  void _onSwipe(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    if (v < -80 && _canNextMonth) {
+      HapticFeedback.mediumImpact();
+      _nextMonth();
+    } else if (v > 80 && _canPrevMonth) {
+      HapticFeedback.mediumImpact();
+      _prevMonth();
+    }
+  }
+
   void _prevMonth() => setState(() {
         if (_month == 1) {
           _month = 12;
@@ -167,7 +179,10 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _grid(context),
+                  GestureDetector(
+                    onHorizontalDragEnd: _onSwipe,
+                    child: _grid(context),
+                  ),
                   const Divider(height: 1),
                   _selectedDaySection(context),
                 ],
@@ -282,7 +297,7 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
     return GestureDetector(
       onTap: enabled
           ? () {
-              HapticFeedback.selectionClick();
+              HapticFeedback.mediumImpact();
               setState(() => _selectedDate = date);
             }
           : null,
