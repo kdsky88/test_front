@@ -27,6 +27,10 @@ class CalendarNotifier extends ChangeNotifier {
   String? _error;
   int _seq = 0;
 
+  // 방문한 달의 데이터 캐시: 넘길 때 즉시 표시 + 백그라운드로 갱신(스피너·깜빡임 방지).
+  final Map<String, Map<String, List<Todo>>> _monthCache = {};
+  String get _monthKey => '$_year-$_month';
+
   final Set<String> _processingIds = {};
   final Map<String, String> _itemErrors = {};
 
@@ -91,6 +95,7 @@ class CalendarNotifier extends ChangeNotifier {
         for (final entry in data.entries)
           entry.key: sortCalendarTodosByPriority(entry.value),
       };
+      _monthCache[_monthKey] = _calendarData;
       _status = CalendarStatus.idle;
       _error = null;
       notifyListeners();
@@ -109,26 +114,27 @@ class CalendarNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> prevMonth() async {
-    if (_month == 1) {
+  Future<void> prevMonth() => _changeMonth(-1);
+
+  Future<void> nextMonth() => _changeMonth(1);
+
+  Future<void> _changeMonth(int delta) async {
+    final m = _month + delta;
+    if (m < 1) {
       _year -= 1;
       _month = 12;
-    } else {
-      _month -= 1;
-    }
-    _selectedDate = DateTime(_year, _month, 1);
-    await loadCalendar();
-  }
-
-  Future<void> nextMonth() async {
-    if (_month == 12) {
+    } else if (m > 12) {
       _year += 1;
       _month = 1;
     } else {
-      _month += 1;
+      _month = m;
     }
     _selectedDate = DateTime(_year, _month, 1);
-    await loadCalendar();
+    // 캐시가 있으면 즉시 막대 표시, 없으면 빈 그리드 → 새 달이 스피너 없이 바로 뜸.
+    _calendarData = _monthCache[_monthKey] ?? {};
+    _status = CalendarStatus.idle;
+    notifyListeners();
+    await loadCalendar(silent: true); // 뒤에서 조용히 최신화
   }
 
   Future<void> toggleComplete(String id) async {
@@ -205,6 +211,7 @@ class CalendarNotifier extends ChangeNotifier {
           e.value.map((t) => t.id == id ? updated : t),
         ),
     };
+    _monthCache[_monthKey] = _calendarData;
   }
 
   void _removeTodo(String id) {
@@ -212,6 +219,7 @@ class CalendarNotifier extends ChangeNotifier {
       for (final e in _calendarData.entries)
         e.key: e.value.where((t) => t.id != id).toList(),
     };
+    _monthCache[_monthKey] = _calendarData;
   }
 
   String _dataErrorMessage(Object error) {
