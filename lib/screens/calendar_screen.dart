@@ -88,7 +88,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       else
                         GestureDetector(
                           onHorizontalDragEnd: (d) => _onCalendarSwipe(d, n),
-                          child: _buildCalendarGrid(context, n),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 260),
+                            switchInCurve: Curves.easeOut,
+                            transitionBuilder: (child, animation) {
+                              final slide = Tween<Offset>(
+                                begin: Offset(0.10 * n.lastMonthDelta, 0),
+                                end: Offset.zero,
+                              ).animate(animation);
+                              return FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(position: slide, child: child),
+                              );
+                            },
+                            child: KeyedSubtree(
+                              key: ValueKey('${n.year}-${n.month}'),
+                              child: _buildCalendarGrid(context, n),
+                            ),
+                          ),
                         ),
                       const Divider(height: 1),
                       _buildSelectedDateLabel(context, n),

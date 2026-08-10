@@ -35,6 +35,10 @@ class CalendarNotifier extends ChangeNotifier {
   bool _bgLoading = false;
   bool get backgroundLoading => _bgLoading;
 
+  // 최근 월 이동 방향(+1 다음, -1 이전) — 그리드 슬라이드 애니메이션 방향.
+  int _lastDelta = 1;
+  int get lastMonthDelta => _lastDelta;
+
   final Set<String> _processingIds = {};
   final Map<String, String> _itemErrors = {};
 
@@ -134,6 +138,7 @@ class CalendarNotifier extends ChangeNotifier {
   Future<void> nextMonth() => _changeMonth(1);
 
   Future<void> _changeMonth(int delta) async {
+    _lastDelta = delta;
     final m = _month + delta;
     if (m < 1) {
       _year -= 1;
@@ -144,7 +149,11 @@ class CalendarNotifier extends ChangeNotifier {
     } else {
       _month = m;
     }
-    _selectedDate = DateTime(_year, _month, 1);
+    // 오늘이 있는 달로 오면 오늘 자동 선택, 그 외 달은 1일 선택.
+    final now = DateTime.now();
+    _selectedDate = (_year == now.year && _month == now.month)
+        ? DateTime(now.year, now.month, now.day)
+        : DateTime(_year, _month, 1);
     // 캐시가 있으면 즉시 막대 표시, 없으면 빈 그리드 → 새 달이 스피너 없이 바로 뜸.
     _calendarData = _monthCache[_monthKey] ?? {};
     _status = CalendarStatus.idle;
