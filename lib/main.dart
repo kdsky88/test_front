@@ -5,6 +5,7 @@ import 'theme.dart';
 import 'screens/todo_list_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/trips_screen.dart';
+import 'screens/discover_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/auth_api.dart';
@@ -128,6 +129,7 @@ class _TodoAppState extends State<TodoApp> {
                     onLogout: _logout,
                   ),
                   TripsScreen(onLogout: _logout, notifier: _todoNotifier),
+                  const DiscoverScreen(),
                 ],
               ),
               bottomNavigationBar: NavigationBar(
@@ -148,6 +150,11 @@ class _TodoAppState extends State<TodoApp> {
                     icon: Icon(Icons.luggage_outlined),
                     selectedIcon: Icon(Icons.luggage),
                     label: '여행',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.explore_outlined),
+                    selectedIcon: Icon(Icons.explore),
+                    label: '발견',
                   ),
                 ],
               ),
