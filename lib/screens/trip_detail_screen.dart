@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/trip_api.dart';
@@ -148,6 +150,12 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final days = _days;
     final children = <Widget>[_hero(cover)];
 
+    // 위치가 있는 일정을 여행 지도에 핀으로.
+    final located = (_todos ?? const [])
+        .where((t) => t.latitude != null && t.longitude != null)
+        .toList();
+    if (located.isNotEmpty) children.add(_tripMap(located, cover));
+
     if (days.isEmpty) {
       // 기간 미정: 전체 항목을 한 목록으로.
       final all = _todos ?? const [];
@@ -225,6 +233,71 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         ],
       ),
     );
+  }
+
+  // 여행 전체 지도: 위치가 있는 일정을 핀으로. 핀 탭 → 그 일정 이름/장소.
+  Widget _tripMap(List<Todo> located, Color cover) {
+    final points = [for (final t in located) LatLng(t.latitude!, t.longitude!)];
+    final markers = [
+      for (final t in located)
+        Marker(
+          point: LatLng(t.latitude!, t.longitude!),
+          width: 40,
+          height: 40,
+          alignment: Alignment.topCenter,
+          child: GestureDetector(
+            onTap: () => _showPlace(t),
+            child: Icon(Icons.location_on, size: 36, color: cover),
+          ),
+        ),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        child: SizedBox(
+          height: 200,
+          child: FlutterMap(
+            options: MapOptions(
+              initialCenter: points.first,
+              initialZoom: 13,
+              initialCameraFit: points.length == 1
+                  ? null
+                  : CameraFit.bounds(
+                      bounds: LatLngBounds.fromPoints(points),
+                      padding: const EdgeInsets.all(40),
+                    ),
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag | InteractiveFlag.doubleTapZoom,
+              ),
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.openclaw.todo_app',
+              ),
+              MarkerLayer(markers: markers),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPlace(Todo todo) {
+    final when = todo.startAt ?? todo.dueAt;
+    final time = when != null ? '${_timeFmt.format(when.toLocal())}  ' : '';
+    // 장소명이 제목과 다르면 둘 다, 같으면(발견 저장 등) 하나만.
+    final label = (todo.placeName != null && todo.placeName != todo.title)
+        ? '${todo.title} · ${todo.placeName}'
+        : todo.title;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('📍 $time$label'),
+        duration: const Duration(seconds: 2),
+        action: SnackBarAction(label: '수정', onPressed: () => _editItem(todo)),
+      ));
   }
 
   Widget _daySection(int dayNo, DateTime date, List<Todo> items, Color cover) {
