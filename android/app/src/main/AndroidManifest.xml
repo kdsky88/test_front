@@ -13,6 +13,10 @@
         android:label="할 일"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- 구글맵 SDK 키(빌드시 key.properties의 mapsApiKey에서 주입). -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

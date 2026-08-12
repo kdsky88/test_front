@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/trip_api.dart';
@@ -154,7 +153,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final located = (_todos ?? const [])
         .where((t) => t.latitude != null && t.longitude != null)
         .toList();
-    if (located.isNotEmpty) children.add(_tripMap(located, cover));
+    if (located.isNotEmpty) children.add(_tripMap(located));
 
     if (days.isEmpty) {
       // 기간 미정: 전체 항목을 한 목록으로.
@@ -235,53 +234,57 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  // 여행 전체 지도: 위치가 있는 일정을 핀으로. 핀 탭 → 그 일정 이름/장소.
-  Widget _tripMap(List<Todo> located, Color cover) {
-    final points = [for (final t in located) LatLng(t.latitude!, t.longitude!)];
-    final markers = [
+  // 여행 전체 지도(구글맵): 위치가 있는 일정을 핀으로. 핀 탭 → 그 일정.
+  Widget _tripMap(List<Todo> located) {
+    final markers = <Marker>{
       for (final t in located)
         Marker(
-          point: LatLng(t.latitude!, t.longitude!),
-          width: 40,
-          height: 40,
-          alignment: Alignment.topCenter,
-          child: GestureDetector(
-            onTap: () => _showPlace(t),
-            child: Icon(Icons.location_on, size: 36, color: cover),
-          ),
+          markerId: MarkerId(t.id),
+          position: LatLng(t.latitude!, t.longitude!),
+          infoWindow: InfoWindow(title: t.placeName ?? t.title),
+          onTap: () => _showPlace(t),
         ),
-    ];
+    };
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTheme.radius),
         child: SizedBox(
           height: 200,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: points.first,
-              initialZoom: 13,
-              initialCameraFit: points.length == 1
-                  ? null
-                  : CameraFit.bounds(
-                      bounds: LatLngBounds.fromPoints(points),
-                      padding: const EdgeInsets.all(40),
-                    ),
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag | InteractiveFlag.doubleTapZoom,
-              ),
+          child: GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: LatLng(located.first.latitude!, located.first.longitude!),
+              zoom: 12,
             ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.openclaw.todo_app',
-              ),
-              MarkerLayer(markers: markers),
-            ],
+            markers: markers,
+            onMapCreated: (controller) => _fitBounds(controller, located),
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
           ),
         ),
       ),
     );
+  }
+
+  // 핀이 여러 개면 다 보이게 카메라 맞춤(지도 레이아웃 후 호출).
+  void _fitBounds(GoogleMapController controller, List<Todo> located) {
+    if (located.length < 2) return;
+    var minLat = located.first.latitude!, maxLat = minLat;
+    var minLng = located.first.longitude!, maxLng = minLng;
+    for (final t in located) {
+      minLat = t.latitude! < minLat ? t.latitude! : minLat;
+      maxLat = t.latitude! > maxLat ? t.latitude! : maxLat;
+      minLng = t.longitude! < minLng ? t.longitude! : minLng;
+      maxLng = t.longitude! > maxLng ? t.longitude! : maxLng;
+    }
+    final bounds = LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 48));
+    });
   }
 
   void _showPlace(Todo todo) {

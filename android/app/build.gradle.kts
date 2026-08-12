@@ -66,6 +66,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // 구글맵 Android 키. key.properties의 mapsApiKey(또는 env ANDROID_MAPS_API_KEY)에서 주입.
+        manifestPlaceholders["MAPS_API_KEY"] = signingValue("mapsApiKey") ?: ""
     }
 
     signingConfigs {
