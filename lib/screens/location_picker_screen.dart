@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/todo.dart'; // ApiException
-import '../services/geocoding_api.dart';
 import '../services/places_api.dart';
 
 /// 지도 피커가 돌려주는 선택 결과.
@@ -13,7 +11,7 @@ class PickedLocation {
   const PickedLocation({required this.lat, required this.lng, this.name});
 }
 
-/// 검색 결과(주소/추천)를 지도에 꽂기 위한 통합 형태.
+/// 검색 결과를 지도에 꽂기 위한 형태.
 class _Hit {
   final double lat;
   final double lon;
@@ -22,7 +20,7 @@ class _Hit {
   const _Hit({required this.lat, required this.lon, required this.name, this.subtitle});
 }
 
-/// 지도(구글맵)에서 위치를 고른다: 주소 검색(Nominatim) / 관광지·맛집 추천(FSQ) / 지도 탭.
+/// 구글맵에서 위치를 고른다: 주소/관광지/맛집 검색(구글 Places) 또는 지도 탭.
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({
     super.key,
@@ -36,7 +34,7 @@ class LocationPickerScreen extends StatefulWidget {
   final double? initialLng;
   final String? initialName;
 
-  /// 여행 목적지 등. 있으면 열자마자 그 지역의 관광지 추천을 자동 검색.
+  /// 여행 목적지 등. 있으면 열자마자 그 지역의 관광지를 자동 검색.
   final String? initialQuery;
 
   @override
@@ -48,7 +46,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   GoogleMapController? _mapController;
   final _searchCtrl = TextEditingController();
-  Timer? _debounce;
   bool _searching = false;
   String _mode = 'address'; // 'address' | 'attraction' | 'food'
   List<_Hit> _results = const [];
@@ -66,7 +63,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     _placeName = widget.initialName;
     final q = widget.initialQuery?.trim() ?? '';
     if (q.isNotEmpty) {
-      // 여행 목적지가 있으면 관광지 추천으로 시작.
+      // 여행 목적지가 있으면 관광지로 시작.
       _searchCtrl.text = q;
       _mode = 'attraction';
       WidgetsBinding.instance.addPostFrameCallback((_) => _runSearch(q));
@@ -75,7 +72,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _searchCtrl.dispose();
     _mapController?.dispose();
     super.dispose();
@@ -84,15 +80,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   bool get _isRecommend => _mode != 'address';
 
   void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    setState(() => _searchError = null);
+    // 모두 구글 Places(과금) → 라이브 검색 없이 제출 때만. 비면 결과만 정리.
     if (value.trim().isEmpty) {
-      setState(() => _results = const []);
-      return;
-    }
-    // 주소는 라이브 디바운스(무료). 추천은 백엔드 지오코딩+FSQ라 제출/모드전환 때만(쿼터 절약).
-    if (!_isRecommend) {
-      _debounce = Timer(const Duration(milliseconds: 600), () => _runSearch(value));
+      setState(() {
+        _results = const [];
+        _searchError = null;
+      });
     }
   }
 
@@ -114,25 +107,17 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       _searchError = null;
     });
     try {
-      final List<_Hit> hits;
-      if (_isRecommend) {
-        final places = await PlacesApi.recommend(region: q, type: _mode);
-        hits = places
-            .map((p) => _Hit(
-                  lat: p.latitude,
-                  lon: p.longitude,
-                  name: p.name,
-                  subtitle: [p.category, p.distanceLabel, p.address]
-                      .where((s) => s != null && s.isNotEmpty)
-                      .join(' · '),
-                ))
-            .toList();
-      } else {
-        final res = await GeocodingApi.search(q);
-        hits = res
-            .map((r) => _Hit(lat: r.lat, lon: r.lon, name: r.shortName, subtitle: r.displayName))
-            .toList();
-      }
+      final places = await PlacesApi.recommend(region: q, type: _mode);
+      final hits = places
+          .map((p) => _Hit(
+                lat: p.latitude,
+                lon: p.longitude,
+                name: p.name,
+                subtitle: [p.category, p.address]
+                    .where((s) => s != null && s.isNotEmpty)
+                    .join(' · '),
+              ))
+          .toList();
       if (mounted) setState(() => _results = hits);
     } on ApiException catch (e) {
       if (mounted) {
@@ -145,7 +130,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       if (mounted) {
         setState(() {
           _results = const [];
-          _searchError = _isRecommend ? '추천을 불러오지 못했어요' : null;
+          _searchError = '검색에 실패했어요';
         });
       }
     } finally {
@@ -231,10 +216,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                     controller: _searchCtrl,
                     textInputAction: TextInputAction.search,
                     onChanged: _onSearchChanged,
-                    onSubmitted: (v) {
-                      _debounce?.cancel();
-                      _runSearch(v);
-                    },
+                    onSubmitted: (v) => _runSearch(v),
                     decoration: InputDecoration(
                       hintText: _hint,
                       prefixIcon: const Icon(Icons.search),
