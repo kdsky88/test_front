@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/todo.dart'; // ApiException
 import '../services/geocoding_api.dart';
 import '../services/places_api.dart';
@@ -23,16 +22,18 @@ class _Hit {
   const _Hit({required this.lat, required this.lon, required this.name, this.subtitle});
 }
 
-/// 지도에서 위치를 고른다: 주소 검색(Nominatim) / 관광지·맛집 추천(Foursquare 프록시) / 지도 탭.
+/// 지도(구글맵)에서 위치를 고른다: 주소 검색(Nominatim) / 관광지·맛집 추천(FSQ) / 지도 탭.
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({
     super.key,
-    this.initial,
+    this.initialLat,
+    this.initialLng,
     this.initialName,
     this.initialQuery,
   });
 
-  final LatLng? initial;
+  final double? initialLat;
+  final double? initialLng;
   final String? initialName;
 
   /// 여행 목적지 등. 있으면 열자마자 그 지역의 관광지 추천을 자동 검색.
@@ -45,7 +46,7 @@ class LocationPickerScreen extends StatefulWidget {
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
   static const _seoul = LatLng(37.5665, 126.9780);
 
-  final _mapController = MapController();
+  GoogleMapController? _mapController;
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
   bool _searching = false;
@@ -59,7 +60,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   @override
   void initState() {
     super.initState();
-    _selected = widget.initial;
+    if (widget.initialLat != null && widget.initialLng != null) {
+      _selected = LatLng(widget.initialLat!, widget.initialLng!);
+    }
     _placeName = widget.initialName;
     final q = widget.initialQuery?.trim() ?? '';
     if (q.isNotEmpty) {
@@ -74,6 +77,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   void dispose() {
     _debounce?.cancel();
     _searchCtrl.dispose();
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -157,7 +161,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       _results = const [];
       _searchCtrl.text = h.name;
     });
-    _mapController.move(p, 15);
+    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(p, 15));
     FocusScope.of(context).unfocus();
   }
 
@@ -193,31 +197,25 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       appBar: AppBar(title: const Text('장소 선택')),
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _selected ?? widget.initial ?? _seoul,
-              initialZoom: _selected != null ? 15 : 11,
-              onTap: (tapPosition, point) => _onMapTap(point),
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: _selected ?? _seoul,
+              zoom: _selected != null ? 15 : 11,
             ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.openclaw.todo_app',
-              ),
-              if (_selected != null)
-                MarkerLayer(
-                  markers: [
+            onMapCreated: (c) => _mapController = c,
+            onTap: _onMapTap,
+            markers: _selected == null
+                ? const {}
+                : {
                     Marker(
-                      point: _selected!,
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.topCenter,
-                      child: Icon(Icons.location_on, size: 44, color: theme.colorScheme.error),
+                      markerId: const MarkerId('selected'),
+                      position: _selected!,
+                      infoWindow: InfoWindow(title: _placeName ?? '선택한 위치'),
                     ),
-                  ],
-                ),
-            ],
+                  },
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
           ),
           // 검색창 + 모드 토글 + 결과
           Positioned(
@@ -290,7 +288,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                 if (_results.isNotEmpty)
                   Container(
                     margin: const EdgeInsets.only(top: 4),
-                    constraints: const BoxConstraints(maxHeight: 260),
+                    constraints: const BoxConstraints(maxHeight: 280),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
                       borderRadius: BorderRadius.circular(8),
@@ -303,9 +301,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       itemBuilder: (context, i) {
                         final h = _results[i];
                         return ListTile(
-                          dense: true,
-                          leading: Icon(_hitIcon, size: 20),
-                          title: Text(h.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          leading: Icon(_hitIcon, size: 22, color: theme.colorScheme.primary),
+                          title: Text(h.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: h.subtitle != null && h.subtitle!.isNotEmpty
                               ? Text(h.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis)
                               : null,

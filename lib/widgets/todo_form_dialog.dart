@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
 import '../screens/location_picker_screen.dart';
@@ -493,29 +492,62 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   }
 
   Widget _buildLocationField() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _submitting ? null : _pickLocation,
-            icon: const Icon(Icons.place_outlined, size: 20),
-            label: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _lat == null ? '지도에서 선택' : (_placeName ?? '지정한 위치'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    final scheme = Theme.of(context).colorScheme;
+    final hasPlace = _lat != null;
+    return Material(
+      color: hasPlace
+          ? scheme.primaryContainer.withValues(alpha: 0.45)
+          : scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: _submitting ? null : _pickLocation,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(hasPlace ? Icons.place : Icons.travel_explore, color: scheme.primary),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasPlace ? (_placeName ?? '지정한 위치') : '장소 찾기',
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasPlace ? '탭해서 변경' : '관광지·맛집 검색하거나 지도에서 선택',
+                      style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (hasPlace)
+                IconButton(
+                  tooltip: '장소 제거',
+                  icon: const Icon(Icons.clear),
+                  onPressed: _submitting ? null : _clearLocation,
+                )
+              else
+                Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+            ],
           ),
         ),
-        if (_lat != null)
-          IconButton(
-            tooltip: '장소 제거',
-            icon: const Icon(Icons.clear, size: 18),
-            onPressed: _submitting ? null : _clearLocation,
-          ),
-      ],
+      ),
     );
   }
 
@@ -523,7 +555,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     final result = await Navigator.of(context).push<PickedLocation>(
       MaterialPageRoute(
         builder: (_) => LocationPickerScreen(
-          initial: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : null,
+          initialLat: _lat,
+          initialLng: _lng,
           initialName: _placeName,
           // 위치가 아직 없고 여행 목적지가 있으면 그 지역 추천을 자동으로 띄운다.
           initialQuery: (_lat == null && _lng == null) ? widget.lockedTrip?.destination : null,
@@ -651,6 +684,13 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 장소를 맨 위로: 발견한 곳을 먼저 정하고 나머지는 부수적.
+              if (_showLocation) ...[
+                Text('장소', style: labelStyle),
+                const SizedBox(height: 6),
+                _buildLocationField(),
+                const SizedBox(height: 18),
+              ],
               Text('제목 *', style: labelStyle),
               const SizedBox(height: 6),
               TextField(
@@ -801,12 +841,6 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
                 _buildTripDropdown(theme),
               ],
               const SizedBox(height: 14),
-              if (_showLocation) ...[
-                Text('장소', style: labelStyle),
-                const SizedBox(height: 6),
-                _buildLocationField(),
-                const SizedBox(height: 14),
-              ],
               Text('태그', style: labelStyle),
               const SizedBox(height: 6),
               Row(
