@@ -525,6 +525,8 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
         builder: (_) => LocationPickerScreen(
           initial: _lat != null && _lng != null ? LatLng(_lat!, _lng!) : null,
           initialName: _placeName,
+          // 위치가 아직 없고 여행 목적지가 있으면 그 지역 추천을 자동으로 띄운다.
+          initialQuery: (_lat == null && _lng == null) ? widget.lockedTrip?.destination : null,
         ),
       ),
     );
