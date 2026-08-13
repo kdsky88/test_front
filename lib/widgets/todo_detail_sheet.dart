@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/todo.dart';
+import '../screens/trip_map_screen.dart';
 import '../state/todo_notifier.dart';
 import 'priority_badge.dart';
 import 'todo_form_dialog.dart';
@@ -92,6 +94,47 @@ class _TodoDetailSheetState extends State<_TodoDetailSheet> {
         action: SnackBarAction(
           label: '실행취소',
           onPressed: () => widget.notifier.restoreTodo(removed),
+        ),
+      ),
+    );
+  }
+
+  bool get _hasLocation => _todo.latitude != null && _todo.longitude != null;
+
+  void _openMap() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TripMapScreen(
+        title: _todo.placeName ?? _todo.title,
+        located: [_todo],
+        focusId: _todo.id,
+      ),
+    ));
+  }
+
+  // 상세 안 미리보기 지도(핀 1개). 팬/줌은 시트 스크롤과 충돌하니 끄고, 탭하면 전체화면.
+  Widget _miniMap() {
+    final pos = LatLng(_todo.latitude!, _todo.longitude!);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: 160,
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(target: pos, zoom: 15),
+          markers: {
+            Marker(
+              markerId: const MarkerId('loc'),
+              position: pos,
+              infoWindow: InfoWindow(title: _todo.placeName ?? _todo.title),
+            ),
+          },
+          onTap: (_) => _openMap(),
+          zoomGesturesEnabled: false,
+          scrollGesturesEnabled: false,
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+          zoomControlsEnabled: false,
+          myLocationButtonEnabled: false,
+          mapToolbarEnabled: false,
         ),
       ),
     );
@@ -231,6 +274,12 @@ class _TodoDetailSheetState extends State<_TodoDetailSheet> {
                       )
                       .toList(),
                 ),
+              ],
+              if (_hasLocation) ...[
+                const SizedBox(height: 12),
+                _infoRow(theme, Icons.place_outlined, '장소', todo.placeName ?? '지정한 위치'),
+                const SizedBox(height: 8),
+                _miniMap(),
               ],
               if (total > 0) ...[
                 const SizedBox(height: 18),
