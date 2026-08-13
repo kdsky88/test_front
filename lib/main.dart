@@ -66,13 +66,12 @@ class _TodoAppState extends State<TodoApp> {
     // Both views are independent caches, so refresh the one being shown to
     // reflect changes (edit, complete, delete) made on the other tab. The
     // reload is silent: existing content stays on screen until fresh data
-    // arrives. Tab 0 = 달력, tab 1 = 목록.
-    if (index == 0) {
+    // arrives. Tab 0 = 여행(자체 상태 관리), 1 = 달력, 2 = 할일.
+    if (index == 1) {
       _calendarNotifier.loadCalendar(silent: true);
-    } else if (index == 1) {
+    } else if (index == 2) {
       _todoNotifier.loadTodos(silent: true);
     }
-    // 여행 탭(2)은 자체 상태 관리(진입 로드 + 당겨서 새로고침).
   }
 
   void _onAuthenticated() {
@@ -118,6 +117,7 @@ class _TodoAppState extends State<TodoApp> {
               body: IndexedStack(
                 index: _selectedTab,
                 children: [
+                  TripsScreen(onLogout: _logout, notifier: _todoNotifier),
                   CalendarScreen(
                     calendarNotifier: _calendarNotifier,
                     todoNotifier: _todoNotifier,
@@ -127,13 +127,17 @@ class _TodoAppState extends State<TodoApp> {
                     notifier: _todoNotifier,
                     onLogout: _logout,
                   ),
-                  TripsScreen(onLogout: _logout, notifier: _todoNotifier),
                 ],
               ),
               bottomNavigationBar: NavigationBar(
                 selectedIndex: _selectedTab,
                 onDestinationSelected: _onTabSelected,
                 destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.luggage_outlined),
+                    selectedIcon: Icon(Icons.luggage),
+                    label: '여행',
+                  ),
                   NavigationDestination(
                     icon: Icon(Icons.calendar_month_outlined),
                     selectedIcon: Icon(Icons.calendar_month),
@@ -143,11 +147,6 @@ class _TodoAppState extends State<TodoApp> {
                     icon: Icon(Icons.checklist_outlined),
                     selectedIcon: Icon(Icons.checklist),
                     label: '할 일',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.luggage_outlined),
-                    selectedIcon: Icon(Icons.luggage),
-                    label: '여행',
                   ),
                 ],
               ),
