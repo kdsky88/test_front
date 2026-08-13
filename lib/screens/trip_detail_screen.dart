@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show Factory;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +10,7 @@ import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
 import 'trip_calendar_screen.dart';
+import 'trip_map_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
 final _dayFmt = DateFormat('M/d (E)', 'ko');
@@ -234,7 +237,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  // 여행 전체 지도(구글맵): 위치가 있는 일정을 핀으로. 핀 탭 → 그 일정.
+  List<Todo> get _located =>
+      (_todos ?? const []).where((t) => t.latitude != null && t.longitude != null).toList();
+
+  void _openMap({String? focusId}) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TripMapScreen(
+        title: widget.trip.title,
+        located: _located,
+        focusId: focusId,
+      ),
+    ));
+  }
+
+  // 여행 전체 지도(구글맵): 위치가 있는 일정을 핀으로. 인라인에서도 확대/이동 되고, 전체화면 버튼 제공.
   Widget _tripMap(List<Todo> located) {
     final markers = <Marker>{
       for (final t in located)
@@ -251,16 +267,38 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         borderRadius: BorderRadius.circular(AppTheme.radius),
         child: SizedBox(
           height: 200,
-          child: GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: LatLng(located.first.latitude!, located.first.longitude!),
-              zoom: 12,
-            ),
-            markers: markers,
-            onMapCreated: (controller) => _fitBounds(controller, located),
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            mapToolbarEnabled: false,
+          child: Stack(
+            children: [
+              GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(located.first.latitude!, located.first.longitude!),
+                  zoom: 12,
+                ),
+                markers: markers,
+                onMapCreated: (controller) => _fitBounds(controller, located),
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                // 리스트 안에서도 지도가 드래그/줌 제스처를 잡도록(스크롤에 안 먹힘).
+                gestureRecognizers: {
+                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                },
+              ),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(),
+                  elevation: 2,
+                  child: IconButton(
+                    icon: const Icon(Icons.fullscreen),
+                    tooltip: '전체화면 지도',
+                    onPressed: () => _openMap(),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -350,7 +388,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Card(
         child: InkWell(
-          onTap: () => _editItem(todo),
+          // 탭 = 지도(장소 있을 때), 없으면 수정. 수정은 우측 연필로.
+          onTap: () => todo.latitude != null ? _openMap(focusId: todo.id) : _editItem(todo),
           borderRadius: BorderRadius.circular(AppTheme.radius),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -405,7 +444,16 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   ),
                 ),
                 if (todo.completed)
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const Padding(
+                    padding: EdgeInsets.only(right: 2),
+                    child: Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  tooltip: '수정',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _editItem(todo),
+                ),
               ],
             ),
           ),
