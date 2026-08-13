@@ -1,10 +1,15 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart' show Factory;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import '../models/place.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
+import '../services/map_links.dart';
+import '../services/places_api.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
 import '../theme.dart';
@@ -30,6 +35,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   List<Todo>? _todos;
   bool _loading = true;
   String? _error;
+
+  // 즉흥 추천("아무거나") — 목적지 추천을 타입별 캐시.
+  final _rng = Random();
+  final Map<String, List<Place>> _recoCache = {};
 
   @override
   void initState() {
@@ -152,6 +161,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final days = _days;
     final children = <Widget>[_hero(cover)];
 
+    // 즉흥 추천 버튼(목적지 있을 때).
+    children.add(_surpriseButton());
+
     // 위치가 있는 일정을 여행 지도에 핀으로.
     final located = (_todos ?? const [])
         .where((t) => t.latitude != null && t.longitude != null)
@@ -248,6 +260,147 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         focusId: focusId,
       ),
     ));
+  }
+
+  Future<List<Place>?> _recosFor(String type) async {
+    if (_recoCache.containsKey(type)) return _recoCache[type];
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return null;
+    try {
+      final places = await PlacesApi.recommend(region: dest, type: type);
+      _recoCache[type] = places;
+      return places;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // 즉흥 추천: 관광지/맛집 중 랜덤 타입 → 랜덤 1곳.
+  Future<void> _surprise() async {
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return;
+    HapticFeedback.mediumImpact();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    var type = _rng.nextBool() ? 'attraction' : 'food';
+    var places = await _recosFor(type);
+    if (places == null || places.isEmpty) {
+      type = type == 'attraction' ? 'food' : 'attraction';
+      places = await _recosFor(type);
+    }
+    if (mounted) Navigator.of(context).pop(); // 로딩 닫기
+    if (!mounted) return;
+    if (places == null || places.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('추천을 불러오지 못했어요')),
+      );
+      return;
+    }
+    _showSurprise(places[_rng.nextInt(places.length)]);
+  }
+
+  void _showSurprise(Place initial) {
+    Place current = initial;
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final theme = Theme.of(ctx);
+          Future<void> reroll() async {
+            HapticFeedback.selectionClick();
+            final type = _rng.nextBool() ? 'attraction' : 'food';
+            final places = await _recosFor(type) ?? const [];
+            if (places.isEmpty || !ctx.mounted) return;
+            setSheet(() => current = places[_rng.nextInt(places.length)]);
+          }
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('🎲 아무거나',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(current.name,
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  if (current.category != null) ...[
+                    const SizedBox(height: 4),
+                    Text(current.category!,
+                        style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                  ],
+                  if (current.address != null) ...[
+                    const SizedBox(height: 4),
+                    Text(current.address!,
+                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13)),
+                  ],
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => _addFromSurprise(current),
+                          icon: const Icon(Icons.add),
+                          label: const Text('일정으로 추가'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => openInGoogleMaps(
+                            lat: current.latitude, lng: current.longitude, directions: true),
+                        icon: const Icon(Icons.directions),
+                        label: const Text('길찾기'),
+                      ),
+                    ],
+                  ),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: reroll,
+                      icon: const Icon(Icons.casino_outlined),
+                      label: const Text('다른 거'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _addFromSurprise(Place p) async {
+    Navigator.of(context).pop(); // 시트 닫기
+    final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => TodoFormDialog(
+        notifier: widget.notifier,
+        lockedTrip: widget.trip,
+        initialTitle: p.name,
+        initialPlaceName: p.name,
+        initialLat: p.latitude,
+        initialLng: p.longitude,
+      ),
+    ));
+    if (ok == true) _load();
+  }
+
+  Widget _surpriseButton() {
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: FilledButton.tonalIcon(
+        onPressed: _surprise,
+        icon: const Icon(Icons.casino_outlined),
+        label: const Text('아무거나 골라줘'),
+      ),
+    );
   }
 
   // 여행 전체 지도(구글맵): 위치가 있는 일정을 핀으로. 인라인에서도 확대/이동 되고, 전체화면 버튼 제공.

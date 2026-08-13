@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/todo.dart';
+import '../services/map_links.dart';
 
 /// 전체화면 인터랙티브 지도: 여행의 장소들을 핀으로. focusId 있으면 그 장소로 확대.
 /// 풀스크린이라 스크롤 충돌 없이 확대·축소·이동 자유.
@@ -82,8 +83,21 @@ class _TripMapScreenState extends State<TripMapScreen> {
           infoWindow: InfoWindow(title: t.placeName ?? t.title),
         ),
     };
+    // 포커스된(또는 유일한) 장소가 있으면 길찾기 버튼.
+    final dirTarget = focus ?? (widget.located.length == 1 ? widget.located.first : null);
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
+      floatingActionButton: dirTarget == null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => openInGoogleMaps(
+                lat: dirTarget.latitude!,
+                lng: dirTarget.longitude!,
+                directions: true,
+              ),
+              icon: const Icon(Icons.directions),
+              label: const Text('길찾기'),
+            ),
       body: GoogleMap(
         initialCameraPosition: CameraPosition(target: target, zoom: focus != null ? 16 : 12),
         markers: markers,
