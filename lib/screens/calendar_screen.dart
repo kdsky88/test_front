@@ -74,44 +74,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
           body: Column(
             children: [
               _buildMonthHeader(context, n),
+              // 달력 그리드는 세로 스크롤 '밖'(고정)에 둔다. 안에 두면 세로 스크롤이
+              // 제스처 아레나에서 이겨 살짝 대각선인 좌우 스와이프를 먹어버려 월 이동이
+              // 잘 안 됐음. 그리드 위엔 경쟁 스크롤이 없어 스와이프가 확실히 잡힌다.
+              if (n.status == CalendarStatus.loading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: LinearProgressIndicator(),
+                )
+              else if (n.status == CalendarStatus.error)
+                _buildCalendarError(context, n)
+              else
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragEnd: (d) => _onCalendarSwipe(d, n),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    switchInCurve: Curves.easeOut,
+                    transitionBuilder: (child, animation) {
+                      final slide = Tween<Offset>(
+                        begin: Offset(0.10 * n.lastMonthDelta, 0),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(position: slide, child: child),
+                      );
+                    },
+                    child: KeyedSubtree(
+                      key: ValueKey('${n.year}-${n.month}'),
+                      child: _buildCalendarGrid(context, n),
+                    ),
+                  ),
+                ),
+              const Divider(height: 1),
+              _buildSelectedDateLabel(context, n),
+              // 할일 목록만 독립적으로 세로 스크롤.
               Expanded(
                 child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      if (n.status == CalendarStatus.loading)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: LinearProgressIndicator(),
-                        )
-                      else if (n.status == CalendarStatus.error)
-                        _buildCalendarError(context, n)
-                      else
-                        GestureDetector(
-                          onHorizontalDragEnd: (d) => _onCalendarSwipe(d, n),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 260),
-                            switchInCurve: Curves.easeOut,
-                            transitionBuilder: (child, animation) {
-                              final slide = Tween<Offset>(
-                                begin: Offset(0.10 * n.lastMonthDelta, 0),
-                                end: Offset.zero,
-                              ).animate(animation);
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(position: slide, child: child),
-                              );
-                            },
-                            child: KeyedSubtree(
-                              key: ValueKey('${n.year}-${n.month}'),
-                              child: _buildCalendarGrid(context, n),
-                            ),
-                          ),
-                        ),
-                      const Divider(height: 1),
-                      _buildSelectedDateLabel(context, n),
-                      _buildTodoList(context, n),
-                    ],
-                  ),
+                  child: _buildTodoList(context, n),
                 ),
               ),
             ],
