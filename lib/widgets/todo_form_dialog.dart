@@ -36,12 +36,22 @@ class TodoFormDialog extends StatefulWidget {
   /// 여행 상세에서 열 때: 이 여행으로 고정(드롭다운 잠금) + 날짜를 여행 기간으로 제한.
   final Trip? lockedTrip;
 
+  /// 추천에서 바로 등록할 때 미리 채울 값(생성 모드 전용).
+  final String? initialTitle;
+  final double? initialLat;
+  final double? initialLng;
+  final String? initialPlaceName;
+
   const TodoFormDialog({
     super.key,
     this.todo,
     required this.notifier,
     this.initialDueAt,
     this.lockedTrip,
+    this.initialTitle,
+    this.initialLat,
+    this.initialLng,
+    this.initialPlaceName,
   });
 
   @override
@@ -118,7 +128,7 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
   @override
   void initState() {
     super.initState();
-    _titleCtrl = TextEditingController(text: widget.todo?.title ?? '');
+    _titleCtrl = TextEditingController(text: widget.todo?.title ?? widget.initialTitle ?? '');
     _noteCtrl = TextEditingController(text: widget.todo?.note ?? '');
     _tagCtrl = TextEditingController();
     _subtaskCtrl = TextEditingController();
@@ -149,10 +159,10 @@ class _TodoFormDialogState extends State<TodoFormDialog> {
     _editTags = List.of(widget.todo?.tags ?? []);
     // 여행 고정이면 그 여행으로, 아니면 기존 항목의 여행.
     _selectedTripId = widget.lockedTrip?.id ?? widget.todo?.tripId;
-    // 장소는 편집 시 좌표 유실 방지를 위해 기존 값에서 시드.
-    _lat = widget.todo?.latitude;
-    _lng = widget.todo?.longitude;
-    _placeName = widget.todo?.placeName;
+    // 장소는 편집 시 기존 값, 생성 시 추천에서 넘어온 초기값에서 시드.
+    _lat = widget.todo?.latitude ?? widget.initialLat;
+    _lng = widget.todo?.longitude ?? widget.initialLng;
+    _placeName = widget.todo?.placeName ?? widget.initialPlaceName;
     if (widget.lockedTrip == null) _loadTrips();
   }
 

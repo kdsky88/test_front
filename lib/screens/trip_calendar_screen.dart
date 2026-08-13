@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../models/place.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
+import '../services/places_api.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
 import '../widgets/todo_form_dialog.dart';
@@ -31,6 +33,12 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
   bool _loading = true;
   String? _error;
 
+  // 여행지 추천(관광지/맛집) — 목적지 기준, 타입별 캐시로 중복 호출 방지.
+  String _recoType = 'attraction';
+  final Map<String, List<Place>> _recoCache = {};
+  bool _recoLoading = false;
+  String? _recoError;
+
   bool get _hasRange =>
       widget.trip.startDate != null && widget.trip.endDate != null;
   DateTime get _rangeStart {
@@ -51,6 +59,67 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
     _month = base.month;
     _selectedDate = DateTime(base.year, base.month, base.day);
     _load();
+    _loadRecos();
+  }
+
+  // 목적지 기준 추천 로드. 타입별 캐시 있으면 재호출 안 함(과금 절약).
+  Future<void> _loadRecos() async {
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return;
+    if (_recoCache.containsKey(_recoType)) return;
+    setState(() {
+      _recoLoading = true;
+      _recoError = null;
+    });
+    try {
+      final places = await PlacesApi.recommend(region: dest, type: _recoType);
+      if (!mounted) return;
+      setState(() {
+        _recoCache[_recoType] = places;
+        _recoLoading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _recoError = e.error.message;
+        _recoLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _recoError = '추천을 불러오지 못했어요';
+        _recoLoading = false;
+      });
+    }
+  }
+
+  void _onRecoTypeChanged(String type) {
+    if (type == _recoType) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _recoType = type;
+      _recoError = null;
+    });
+    _loadRecos();
+  }
+
+  // 추천 카드 → 그 장소로 일정 폼 열기(장소·제목 채워서, 선택한 날짜).
+  Future<void> _addFromReco(Place place) async {
+    HapticFeedback.mediumImpact();
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => TodoFormDialog(
+          notifier: widget.notifier,
+          lockedTrip: widget.trip,
+          initialDueAt: _selectedDate,
+          initialTitle: place.name,
+          initialPlaceName: place.name,
+          initialLat: place.latitude,
+          initialLng: place.longitude,
+        ),
+      ),
+    );
+    if (ok == true) _load();
   }
 
   Future<void> _load() async {
@@ -175,18 +244,16 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
           _monthHeader(context),
           if (_loading)
             const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator()),
+          // 그리드는 스크롤 밖(고정) — 세로 스크롤이 좌우 스와이프를 먹지 않게(달력탭과 동일).
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragEnd: _onSwipe,
+            child: _grid(context),
+          ),
+          const Divider(height: 1),
           Expanded(
             child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  GestureDetector(
-                    onHorizontalDragEnd: _onSwipe,
-                    child: _grid(context),
-                  ),
-                  const Divider(height: 1),
-                  _selectedDaySection(context),
-                ],
-              ),
+              child: _selectedDaySection(context),
             ),
           ),
         ],
@@ -384,7 +451,116 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
             icon: const Icon(Icons.add),
             label: const Text('이 날짜에 추가'),
           ),
+          _recoSection(theme),
         ],
+      ),
+    );
+  }
+
+  // 이 여행지 추천(관광지/맛집). 카드 탭 → 그 장소로 일정 폼(선택한 날짜).
+  Widget _recoSection(ThemeData theme) {
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return const SizedBox.shrink();
+    final recos = _recoCache[_recoType];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 22),
+        Row(
+          children: [
+            Icon(Icons.recommend_outlined, size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '$dest 추천',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          showSelectedIcon: false,
+          style: const ButtonStyle(visualDensity: VisualDensity.compact),
+          segments: const [
+            ButtonSegment(value: 'attraction', label: Text('관광지'), icon: Icon(Icons.photo_camera_outlined, size: 18)),
+            ButtonSegment(value: 'food', label: Text('맛집'), icon: Icon(Icons.restaurant_outlined, size: 18)),
+          ],
+          selected: {_recoType},
+          onSelectionChanged: (s) => _onRecoTypeChanged(s.first),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 112,
+          child: _recoLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _recoError != null
+                  ? Center(child: Text(_recoError!, style: TextStyle(color: theme.colorScheme.error, fontSize: 13)))
+                  : (recos == null || recos.isEmpty)
+                      ? Center(child: Text('추천이 없어요', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)))
+                      : ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recos.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 10),
+                          itemBuilder: (context, i) => _recoCard(theme, recos[i]),
+                        ),
+        ),
+      ],
+    );
+  }
+
+  Widget _recoCard(ThemeData theme, Place place) {
+    return SizedBox(
+      width: 180,
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          onTap: () => _addFromReco(place),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  place.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                if (place.category != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    place.category!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: theme.colorScheme.primary, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ],
+                if (place.address != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    place.address!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 11),
+                  ),
+                ],
+                const Spacer(),
+                Row(
+                  children: [
+                    Icon(Icons.add_circle_outline, size: 15, color: theme.colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text('일정 추가',
+                        style: TextStyle(color: theme.colorScheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
