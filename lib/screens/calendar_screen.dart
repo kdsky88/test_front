@@ -190,7 +190,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   static const Color _sundayColor = Color(0xFFE5534B); // 일요일 빨강
   static const Color _saturdayColor = Color(0xFF9AA0A6); // 토요일 회색
-  static const int _maxLanes = 5; // 한 주에 표시할 막대 줄 수(고정 → 날짜 높이 통일)
+  // 한 주에 표시할 막대 줄 수(고정 → 날짜 높이 통일). 5줄은 그리드가 ~500px라
+  // 밑 목록이 뭉개져서 2로 축소(주 1줄당 셀 높이 -45px, 6주면 목록에 ~160px 환원).
+  // 초과 일정은 그리드 막대로만 생략될 뿐, 선택한 날 목록엔 전부 표시됨.
+  static const int _maxLanes = 2;
   static const double _laneHeight = 9; // 막대 한 줄 높이(얇게)
 
   // 좌우 스와이프로 월 이동(왼쪽=다음 달, 오른쪽=이전 달).
