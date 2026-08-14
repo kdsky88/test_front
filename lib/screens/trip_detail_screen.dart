@@ -328,6 +328,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   void _showSurprise(Place initial) {
     Place current = initial;
+    GoogleMapController? mapCtrl;
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -340,6 +341,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             final places = await _recosFor(type) ?? const [];
             if (places.isEmpty || !ctx.mounted) return;
             setSheet(() => current = places[_rng.nextInt(places.length)]);
+            mapCtrl?.animateCamera(
+                CameraUpdate.newLatLngZoom(LatLng(current.latitude, current.longitude), 15));
           }
 
           return SafeArea(
@@ -379,6 +382,35 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     Text(current.address!,
                         style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
                   ],
+                  const SizedBox(height: 12),
+                  // 위치 미리보기(핀). 팬/줌은 시트와 안 싸우게 끄고, 탭하면 구글 지도로.
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      height: 150,
+                      child: GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: LatLng(current.latitude, current.longitude),
+                          zoom: 15,
+                        ),
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('surprise'),
+                            position: LatLng(current.latitude, current.longitude),
+                          ),
+                        },
+                        onMapCreated: (c) => mapCtrl = c,
+                        onTap: (_) => openInGoogleMaps(lat: current.latitude, lng: current.longitude),
+                        zoomGesturesEnabled: false,
+                        scrollGesturesEnabled: false,
+                        rotateGesturesEnabled: false,
+                        tiltGesturesEnabled: false,
+                        zoomControlsEnabled: false,
+                        myLocationButtonEnabled: false,
+                        mapToolbarEnabled: false,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 18),
                   Row(
                     children: [
