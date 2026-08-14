@@ -290,7 +290,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final dest = widget.trip.destination?.trim();
     if (dest == null || dest.isEmpty) return null;
     try {
-      final places = await PlacesApi.recommend(region: dest, type: type);
+      // 즉흥 추천은 설명·별점 포함(detail).
+      final places = await PlacesApi.recommend(region: dest, type: type, detail: true);
       _recoCache[type] = places;
       return places;
     } catch (_) {
@@ -353,15 +354,30 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   const SizedBox(height: 12),
                   Text(current.name,
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                  if (current.category != null) ...[
-                    const SizedBox(height: 4),
-                    Text(current.category!,
-                        style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (current.category != null)
+                        Text(current.category!,
+                            style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                      if (current.rating != null) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.star, size: 15, color: Colors.amber),
+                        const SizedBox(width: 2),
+                        Text(current.rating!.toStringAsFixed(1),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      ],
+                    ],
+                  ),
+                  if (current.description != null) ...[
+                    const SizedBox(height: 8),
+                    Text(current.description!,
+                        style: TextStyle(fontSize: 13.5, height: 1.35, color: theme.colorScheme.onSurface)),
                   ],
                   if (current.address != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     Text(current.address!,
-                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13)),
+                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
                   ],
                   const SizedBox(height: 18),
                   Row(

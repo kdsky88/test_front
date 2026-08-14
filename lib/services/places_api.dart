@@ -13,11 +13,13 @@ class PlacesApi {
     required String region,
     required String type,
     int limit = 20,
+    bool detail = false, // 설명·별점 포함(상위 티어) — 즉흥 추천 등에서만
   }) async {
     final uri = Uri.parse('$baseUrl/places/recommend').replace(queryParameters: {
       'region': region,
       'type': type,
       'limit': '$limit',
+      if (detail) 'detail': 'true',
     });
     final response = await apiClient.get(uri, headers: _headers);
     if (response.statusCode == 200) {

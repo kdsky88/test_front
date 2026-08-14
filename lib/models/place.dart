@@ -8,6 +8,8 @@ class Place {
   final double longitude;
   final int? distance; // 미터
   final String? tel;
+  final String? description; // detail=true일 때만(구글 editorialSummary)
+  final double? rating; // detail=true일 때만
 
   const Place({
     this.fsqId,
@@ -18,6 +20,8 @@ class Place {
     required this.longitude,
     this.distance,
     this.tel,
+    this.description,
+    this.rating,
   });
 
   factory Place.fromJson(Map<String, dynamic> json) => Place(
@@ -29,6 +33,8 @@ class Place {
     longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
     distance: (json['distance'] as num?)?.toInt(),
     tel: json['tel'] as String?,
+    description: json['description'] as String?,
+    rating: (json['rating'] as num?)?.toDouble(),
   );
 
   String? get distanceLabel {
