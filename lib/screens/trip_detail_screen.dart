@@ -11,6 +11,7 @@ import '../models/trip.dart';
 import '../services/map_links.dart';
 import '../services/places_api.dart';
 import '../services/trip_api.dart';
+import '../services/weather_api.dart';
 import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
@@ -40,10 +41,30 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   final _rng = Random();
   final Map<String, List<Place>> _recoCache = {};
 
+  // 목적지 날씨(open-meteo). null=미로드/없음.
+  List<DailyWeather>? _weather;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadWeather();
+  }
+
+  // 목적지 날씨(부가 정보라 실패해도 조용히 무시).
+  Future<void> _loadWeather() async {
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return;
+    try {
+      final w = await WeatherApi.forecast(
+        region: dest,
+        start: widget.trip.startDate,
+        end: widget.trip.endDate,
+      );
+      if (mounted) setState(() => _weather = w);
+    } catch (_) {
+      /* 무시 */
+    }
   }
 
   Future<void> _load() async {
@@ -161,6 +182,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final days = _days;
     final children = <Widget>[_hero(cover)];
 
+    // 목적지 날씨 스트립(예보 범위 내일 때).
+    children.add(_weatherStrip());
     // 즉흥 추천 버튼(목적지 있을 때).
     children.add(_surpriseButton());
 
@@ -399,6 +422,44 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         onPressed: _surprise,
         icon: const Icon(Icons.casino_outlined),
         label: const Text('아무거나 골라줘'),
+      ),
+    );
+  }
+
+  // 목적지 날씨 가로 스트립(여행 기간, 예보 범위 내).
+  Widget _weatherStrip() {
+    final w = _weather;
+    if (w == null || w.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 96,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        itemCount: w.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final d = w[i];
+          return Container(
+            width: 74,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_dayFmt.format(d.date),
+                    style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 4),
+                Text(d.emoji, style: const TextStyle(fontSize: 22)),
+                const SizedBox(height: 4),
+                Text('${d.tMax.round()}° / ${d.tMin.round()}°',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
