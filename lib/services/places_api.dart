@@ -31,6 +31,29 @@ class PlacesApi {
     throw _parseError(response);
   }
 
+  /// 현재 위치 반경 추천(내 주변). type='attraction'|'food'.
+  static Future<List<Place>> nearby({
+    required double lat,
+    required double lng,
+    required String type,
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse('$baseUrl/places/nearby').replace(queryParameters: {
+      'lat': '$lat',
+      'lng': '$lng',
+      'type': type,
+      'limit': '$limit',
+    });
+    final response = await apiClient.get(uri, headers: _headers);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return (json['data'] as List)
+          .map((e) => Place.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw _parseError(response);
+  }
+
   static Map<String, String> get _headers => {
     'Accept': 'application/json',
     if (AuthSession.accessToken case final token?)

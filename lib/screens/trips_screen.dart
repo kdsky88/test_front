@@ -8,6 +8,7 @@ import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
+import 'nearby_screen.dart';
 import 'trip_detail_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
@@ -112,6 +113,13 @@ class _TripsScreenState extends State<TripsScreen> {
         title: const Text('여행'),
         centerTitle: false,
         actions: [
+          IconButton(
+            tooltip: '내 주변',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const NearbyScreen()),
+            ),
+            icon: const Icon(Icons.near_me_outlined),
+          ),
           IconButton(
             tooltip: '로그아웃',
             onPressed: widget.onLogout,
