@@ -15,6 +15,7 @@ import '../services/weather_api.dart';
 import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
+import 'currency_screen.dart';
 import 'trip_calendar_screen.dart';
 import 'trip_map_screen.dart';
 
@@ -155,6 +156,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         backgroundColor: cover,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.currency_exchange),
+            tooltip: '환율',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CurrencyScreen()),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addItem,
