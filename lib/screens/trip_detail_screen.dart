@@ -17,6 +17,7 @@ import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
 import 'currency_screen.dart';
+import 'expenses_screen.dart';
 import 'trip_calendar_screen.dart';
 import 'trip_map_screen.dart';
 
@@ -158,6 +159,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: '경비',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ExpensesScreen(tripId: widget.trip.id, tripTitle: widget.trip.title),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.currency_exchange),
             tooltip: '환율',
