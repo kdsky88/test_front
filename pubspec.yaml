@@ -2,7 +2,7 @@ name: test_front
 description: "Todo List management app."
 publish_to: 'none'
 
-version: 1.27.0+56
+version: 1.28.0+57
 
 environment:
   sdk: ^3.12.1

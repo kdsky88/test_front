@@ -5,6 +5,7 @@ import 'theme.dart';
 import 'screens/todo_list_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/trips_screen.dart';
+import 'screens/splash_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/auth_api.dart';
@@ -31,6 +32,7 @@ class _TodoAppState extends State<TodoApp> {
   final _calendarNotifier = CalendarNotifier();
   int _selectedTab = 0;
   bool _isAuthenticated = AuthSession.isAuthenticated;
+  bool _showSplash = true; // 시작 시 스플래시 애니메이션
 
   @override
   void initState() {
@@ -112,46 +114,61 @@ class _TodoAppState extends State<TodoApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
-      home: _isAuthenticated
-          ? Scaffold(
-              body: IndexedStack(
-                index: _selectedTab,
-                children: [
-                  TripsScreen(onLogout: _logout, notifier: _todoNotifier),
-                  CalendarScreen(
-                    calendarNotifier: _calendarNotifier,
-                    todoNotifier: _todoNotifier,
-                    onLogout: _logout,
-                  ),
-                  TodoListScreen(
-                    notifier: _todoNotifier,
-                    onLogout: _logout,
-                  ),
-                ],
-              ),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: _selectedTab,
-                onDestinationSelected: _onTabSelected,
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.luggage_outlined),
-                    selectedIcon: Icon(Icons.luggage),
-                    label: '여행',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.calendar_month_outlined),
-                    selectedIcon: Icon(Icons.calendar_month),
-                    label: '달력',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.checklist_outlined),
-                    selectedIcon: Icon(Icons.checklist),
-                    label: '할 일',
-                  ),
-                ],
-              ),
-            )
-          : AuthScreen(onAuthenticated: _onAuthenticated),
+      home: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 450),
+        child: _showSplash
+            ? SplashScreen(
+                key: const ValueKey('splash'),
+                onDone: () {
+                  if (mounted) setState(() => _showSplash = false);
+                },
+              )
+            : KeyedSubtree(key: const ValueKey('home'), child: _home()),
+      ),
+    );
+  }
+
+  Widget _home() {
+    if (!_isAuthenticated) {
+      return AuthScreen(onAuthenticated: _onAuthenticated);
+    }
+    return Scaffold(
+      body: IndexedStack(
+        index: _selectedTab,
+        children: [
+          TripsScreen(onLogout: _logout, notifier: _todoNotifier),
+          CalendarScreen(
+            calendarNotifier: _calendarNotifier,
+            todoNotifier: _todoNotifier,
+            onLogout: _logout,
+          ),
+          TodoListScreen(
+            notifier: _todoNotifier,
+            onLogout: _logout,
+          ),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedTab,
+        onDestinationSelected: _onTabSelected,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.luggage_outlined),
+            selectedIcon: Icon(Icons.luggage),
+            label: '여행',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: '달력',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.checklist_outlined),
+            selectedIcon: Icon(Icons.checklist),
+            label: '할 일',
+          ),
+        ],
+      ),
     );
   }
 }
