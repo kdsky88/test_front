@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application
-        android:label="할 일"
+        android:label="P의 여행 플래너"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <!-- 구글맵 SDK 키(빌드시 key.properties의 mapsApiKey에서 주입). -->

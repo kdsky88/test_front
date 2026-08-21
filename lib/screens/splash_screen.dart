@@ -60,11 +60,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     child: CustomPaint(painter: _TrailPainter(fly, p0, p1, p2)),
                   ),
                   Positioned(
-                    left: pt.dx - 26,
-                    top: pt.dy - 26,
+                    left: pt.dx - 34,
+                    top: pt.dy - 34,
                     child: Transform.rotate(
                       angle: angle + pi / 2, // Icons.flight는 위(북)를 향함 → 경로 접선에 맞춤.
-                      child: const Icon(Icons.flight, size: 52, color: Colors.white),
+                      child: const Icon(Icons.flight, size: 68, color: Colors.white),
                     ),
                   ),
                   Align(
@@ -76,8 +76,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: const [
-                            Text('여행 플래너',
-                                style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
+                            Text('P의 여행 플래너',
+                                style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
                             SizedBox(height: 6),
                             Text('가볍게 떠나는 여행',
                                 style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),

@@ -103,7 +103,7 @@ class _TodoAppState extends State<TodoApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '여행 플래너',
+      title: 'P의 여행 플래너',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.build(Brightness.light),
       darkTheme: AppTheme.build(Brightness.dark),
