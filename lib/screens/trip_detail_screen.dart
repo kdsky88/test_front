@@ -20,6 +20,7 @@ import 'currency_screen.dart';
 import 'expenses_screen.dart';
 import 'trip_calendar_screen.dart';
 import 'trip_map_screen.dart';
+import 'trip_preview_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
 final _dayFmt = DateFormat('M/d (E)', 'ko');
@@ -212,7 +213,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final located = (_todos ?? const [])
         .where((t) => t.latitude != null && t.longitude != null)
         .toList();
-    if (located.isNotEmpty) children.add(_tripMap(located));
+    if (located.isNotEmpty) {
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: FilledButton.icon(
+          onPressed: _openPreview,
+          icon: const Icon(Icons.slideshow_outlined),
+          label: const Text('여행 미리보기'),
+        ),
+      ));
+      children.add(_tripMap(located));
+    }
 
     if (days.isEmpty) {
       // 기간 미정: 전체 항목을 한 목록으로.
@@ -303,6 +314,22 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         located: _located,
         focusId: focusId,
       ),
+    ));
+  }
+
+  // 미리보기: 위치 있는 일정을 시간순(시간 없는 건 뒤로)으로 넘겨본다.
+  void _openPreview() {
+    final stops = _located
+      ..sort((a, b) {
+        final at = a.startAt ?? a.dueAt;
+        final bt = b.startAt ?? b.dueAt;
+        if (at == null && bt == null) return 0;
+        if (at == null) return 1; // 시간 없는 건 뒤로
+        if (bt == null) return -1;
+        return at.compareTo(bt);
+      });
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TripPreviewScreen(title: widget.trip.title, stops: stops),
     ));
   }
 
