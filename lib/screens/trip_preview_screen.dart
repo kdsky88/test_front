@@ -1,11 +1,55 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/todo.dart';
 
 final _timeFmt = DateFormat('HH:mm');
+final _dayFmt = DateFormat('M/d (E)', 'ko');
+
+/// 두 장소 사이 이동 추정(직선거리 기반, 실제 경로 아님).
+/// 거리로 교통수단을 어림잡고 평균 속도로 소요시간을 추정한다.
+class _Leg {
+  final IconData icon;
+  final String mode;
+  final String detail; // "약 12분 · 0.9km"
+
+  const _Leg(this.icon, this.mode, this.detail);
+
+  factory _Leg.between(Todo a, Todo b) {
+    final m = Geolocator.distanceBetween(
+        a.latitude!, a.longitude!, b.latitude!, b.longitude!);
+    // ponytail: 직선거리 휴리스틱. 도보 4.5km/h, 대중교통 18km/h, 차량 32km/h(도심 평균).
+    final IconData icon;
+    final String mode;
+    final double kmh;
+    if (m < 900) {
+      icon = Icons.directions_walk;
+      mode = '도보';
+      kmh = 4.5;
+    } else if (m < 6000) {
+      icon = Icons.directions_transit;
+      mode = '대중교통';
+      kmh = 18;
+    } else {
+      icon = Icons.directions_car;
+      mode = '차량';
+      kmh = 32;
+    }
+    final min = (m / 1000 / kmh * 60).round().clamp(1, 999);
+    final dist = m >= 1000 ? '${(m / 1000).toStringAsFixed(1)}km' : '${m.round()}m';
+    return _Leg(icon, mode, '약 $min분 · $dist');
+  }
+}
+
+// 두 시각이 다른 날인지(날짜 구분용).
+bool _sameDay(DateTime? a, DateTime? b) {
+  if (a == null || b == null) return a == null && b == null;
+  final la = a.toLocal(), lb = b.toLocal();
+  return la.year == lb.year && la.month == lb.month && la.day == lb.day;
+}
 
 /// 여행 미리보기: 시간순 장소를 프레젠테이션처럼 한 곳씩 넘겨보며 지도 카메라가 따라 이동.
 /// 경로선(Polyline)으로 전체 동선을, 마커로 각 정지점을 표시한다.
@@ -130,6 +174,11 @@ class _TripPreviewScreenState extends State<TripPreviewScreen> {
   Widget _controlCard(ThemeData theme) {
     final when = _cur.startAt ?? _cur.dueAt;
     final total = widget.stops.length;
+    // 이전 정지점 기준: 날짜가 바뀌면 Day 구분, 아니면 이동 교통수단 추정.
+    final prev = _i > 0 ? widget.stops[_i - 1] : null;
+    final prevWhen = prev == null ? null : (prev.startAt ?? prev.dueAt);
+    final newDay = prev != null && !_sameDay(prevWhen, when);
+    final leg = (prev != null && !newDay) ? _Leg.between(prev, _cur) : null;
     return SafeArea(
       child: Container(
         margin: const EdgeInsets.all(12),
@@ -143,6 +192,33 @@ class _TripPreviewScreenState extends State<TripPreviewScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 날짜가 바뀌면 Day 구분 배너.
+            if (newDay && when != null) ...[
+              Row(
+                children: [
+                  Icon(Icons.event, size: 15, color: theme.colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Text('${_dayFmt.format(when.toLocal())} 시작',
+                      style: TextStyle(
+                          color: theme.colorScheme.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+            // 이동 교통수단 추정(같은 날, 이전 정지점 있을 때).
+            if (leg != null) ...[
+              Row(
+                children: [
+                  Icon(leg.icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text('${leg.mode}  ${leg.detail}',
+                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12.5)),
+                  const SizedBox(width: 6),
+                  Text('(예상)', style: TextStyle(color: theme.colorScheme.outline, fontSize: 10)),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
             Row(
               children: [
                 Container(
@@ -152,7 +228,9 @@ class _TripPreviewScreenState extends State<TripPreviewScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    when != null ? _timeFmt.format(when.toLocal()) : '시간 미정',
+                    when != null
+                        ? '${_dayFmt.format(when.toLocal())}  ${_timeFmt.format(when.toLocal())}'
+                        : '시간 미정',
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
