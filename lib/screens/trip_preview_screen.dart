@@ -122,10 +122,11 @@ class _TripPreviewScreenState extends State<TripPreviewScreen> {
         Marker(
           markerId: MarkerId(stops[k].id),
           position: LatLng(stops[k].latitude!, stops[k].longitude!),
-          // 현재 정지점은 기본(빨강) 핀, 나머지는 흐리게.
+          // 현재=빨강, 방문(완료)=초록, 나머지=하늘색.
           icon: k == _i
               ? BitmapDescriptor.defaultMarker
-              : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+              : BitmapDescriptor.defaultMarkerWithHue(
+                  stops[k].completed ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure),
           onTap: () => _goTo(k),
         ),
     };

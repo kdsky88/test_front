@@ -11,6 +11,7 @@ import '../models/todo.dart';
 import '../models/trip.dart';
 import '../services/map_links.dart';
 import '../services/places_api.dart';
+import '../services/todo_api.dart';
 import '../services/trip_api.dart';
 import '../services/weather_api.dart';
 import '../state/todo_notifier.dart';
@@ -120,6 +121,32 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     if (ok == true) _load();
   }
 
+  // 방문 체크 = 그 일정 완료 토글(completed 재사용). 낙관적 반영 후 서버 반영.
+  Future<void> _toggleVisited(Todo todo) async {
+    HapticFeedback.mediumImpact();
+    final want = !todo.completed;
+    setState(() {
+      final i = _todos?.indexWhere((t) => t.id == todo.id) ?? -1;
+      if (i >= 0) _todos![i] = _todos![i].copyWith(completed: want);
+    });
+    try {
+      await TodoApi.updateTodo(id: todo.id, completed: want);
+      widget.notifier.loadTodos(silent: true); // 다른 탭 동기화
+    } catch (_) {
+      if (mounted) {
+        _load(); // 실패 시 서버 상태로 되돌림
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('반영하지 못했어요')));
+      }
+    }
+  }
+
+  // 여행 기록: 방문(완료)한 장소 수 / 전체 장소 수.
+  (int, int) get _visitedProgress {
+    final located = _located;
+    final visited = located.where((t) => t.completed).length;
+    return (visited, located.length);
+  }
+
   List<DateTime> get _days {
     final s = widget.trip.startDate, e = widget.trip.endDate;
     if (s == null || e == null) return const [];
@@ -204,6 +231,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final days = _days;
     final children = <Widget>[_hero(cover)];
 
+    // 여행 기록: 방문 진행률(장소가 있을 때).
+    children.add(_recordBar());
     // 목적지 날씨 스트립(예보 범위 내일 때).
     children.add(_weatherStrip());
     // 즉흥/하루 코스 버튼(목적지 있을 때).
@@ -724,6 +753,46 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
+  // 여행 기록 진행바: 방문(완료) N / 전체 M 장소.
+  Widget _recordBar() {
+    final (visited, total) = _visitedProgress;
+    if (total == 0) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final done = visited == total;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(done ? Icons.emoji_events : Icons.flag_outlined,
+                  size: 16, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text('여행 기록',
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Text(done ? '완주! $visited곳 다 돌았어요 🎉' : '방문 $visited / $total 곳',
+                  style: TextStyle(
+                      color: done ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
+                      fontSize: 12.5,
+                      fontWeight: done ? FontWeight.w700 : FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: total == 0 ? 0 : visited / total,
+              minHeight: 7,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 여행 전체 지도(구글맵): 위치가 있는 일정을 핀으로. 인라인에서도 확대/이동 되고, 전체화면 버튼 제공.
   Widget _tripMap(List<Todo> located) {
     final markers = <Marker>{
@@ -869,9 +938,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
+                // 방문 체크(완료 토글)
+                IconButton(
+                  icon: Icon(
+                    todo.completed ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: todo.completed ? Colors.green : theme.colorScheme.outline,
+                    size: 22,
+                  ),
+                  tooltip: todo.completed ? '방문 취소' : '방문 체크',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _toggleVisited(todo),
+                ),
                 // 시간 배지
                 SizedBox(
-                  width: 46,
+                  width: 42,
                   child: Text(
                     when != null ? _timeFmt.format(when.toLocal()) : '—',
                     style: TextStyle(
@@ -917,11 +997,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ],
                   ),
                 ),
-                if (todo.completed)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 2),
-                    child: Icon(Icons.check_circle, color: Colors.green, size: 20),
-                  ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: '수정',
