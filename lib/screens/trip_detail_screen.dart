@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/place.dart';
 import '../models/todo.dart';
 import '../models/trip.dart';
@@ -140,6 +141,69 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
   }
 
+  // 여행 일정을 텍스트로 공유(카톡·메시지 등 어디든 붙여넣기).
+  void _shareTrip() {
+    HapticFeedback.selectionClick();
+    Share.share(_buildShareText(), subject: widget.trip.title);
+  }
+
+  String _buildShareText() {
+    final t = widget.trip;
+    final b = StringBuffer();
+    b.writeln('✈️ ${t.title}${t.destination != null ? ' (${t.destination})' : ''}');
+    if (t.startDate != null) {
+      final s = _dateFmt.format(t.startDate!);
+      final e = t.endDate != null ? _dateFmt.format(t.endDate!) : null;
+      b.writeln('📅 ${e != null ? '$s ~ $e' : s}');
+    }
+    final days = _days;
+    final all = _todos ?? const <Todo>[];
+    String line(Todo x) {
+      final when = x.startAt ?? x.dueAt;
+      final time = when != null ? '${_timeFmt.format(when.toLocal())} ' : '';
+      final visited = x.completed ? '✅ ' : '';
+      final place = (x.placeName != null && x.placeName != x.title) ? ' · ${x.placeName}' : '';
+      return '  $visited$time${x.title}$place';
+    }
+
+    if (days.isEmpty) {
+      if (all.isNotEmpty) {
+        b.writeln();
+        for (final x in all) {
+          b.writeln(line(x));
+        }
+      }
+    } else {
+      final matched = <String>{};
+      for (var i = 0; i < days.length; i++) {
+        final items = _itemsOn(days[i]);
+        for (final x in items) {
+          matched.add(x.id);
+        }
+        b.writeln();
+        b.writeln('Day ${i + 1} · ${_dayFmt.format(days[i])}');
+        if (items.isEmpty) {
+          b.writeln('  (일정 없음)');
+        } else {
+          for (final x in items) {
+            b.writeln(line(x));
+          }
+        }
+      }
+      final leftovers = all.where((x) => !matched.contains(x.id)).toList();
+      if (leftovers.isNotEmpty) {
+        b.writeln();
+        b.writeln('그 외');
+        for (final x in leftovers) {
+          b.writeln(line(x));
+        }
+      }
+    }
+    b.writeln();
+    b.write('— P의 여행 플래너');
+    return b.toString();
+  }
+
   // 여행 기록: 방문(완료)한 장소 수 / 전체 장소 수.
   (int, int) get _visitedProgress {
     final located = _located;
@@ -187,6 +251,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.ios_share),
+            tooltip: '공유',
+            onPressed: _shareTrip,
+          ),
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
             tooltip: '경비',
