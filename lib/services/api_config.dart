@@ -9,6 +9,12 @@ const String apiBaseUrl = String.fromEnvironment(
   defaultValue: 'http://localhost:8080',
 );
 
+/// 백엔드 콜드스타트 완화: 앱 시작 시(스플래시 동안) health를 미리 때려 Render를 깨운다.
+/// fire-and-forget — 실패해도 무시(첫 실제 요청은 apiClient 재시도가 견딤).
+void warmBackend() {
+  http.get(Uri.parse('$apiBaseUrl/api/health')).ignore();
+}
+
 /// 공유 HTTP 클라이언트.
 /// - 네트워크 오류 시 백오프 재시도(Render 콜드스타트 견디기, 최대 6회 ≈ 1분)
 /// - 401(액세스 토큰 만료) 시 refresh 토큰으로 자동 갱신 후 원요청 1회 재시도
