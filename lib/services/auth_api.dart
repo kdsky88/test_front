@@ -133,6 +133,26 @@ class AuthApi {
     throw AuthException(_parseErrorMessage(response));
   }
 
+  /// 비밀번호 재설정 요청(메일 발송). 서버는 존재 여부와 무관하게 200 → 성공/실패 구분 없이 완료.
+  static Future<void> forgotPassword(String email) async {
+    await apiClient.post(
+      Uri.parse('$apiBaseUrl/api/auth/forgot'),
+      headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+  }
+
+  /// 재설정 토큰으로 새 비밀번호 설정. 성공 204.
+  static Future<void> resetPassword({required String token, required String newPassword}) async {
+    final response = await apiClient.post(
+      Uri.parse('$apiBaseUrl/api/auth/reset'),
+      headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: jsonEncode({'token': token, 'newPassword': newPassword}),
+    );
+    if (response.statusCode == 204) return;
+    throw AuthException(_parseErrorMessage(response));
+  }
+
   /// refresh 토큰으로 새 access/refresh 발급. apiClient(자동 refresh 래퍼)가 아닌
   /// 순수 http로 호출해 401→refresh 무한루프를 방지.
   static Future<TokenResponse> refresh(String refreshToken) async {

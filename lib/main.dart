@@ -7,6 +7,7 @@ import 'screens/calendar_screen.dart';
 import 'screens/trips_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/lock_screen.dart';
+import 'screens/reset_password_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/api_config.dart';
@@ -40,6 +41,8 @@ class _TodoAppState extends State<TodoApp> {
   bool _showSplash = true; // 시작 시 스플래시 애니메이션
   // 로그인 상태 + 생체 잠금 켜짐이면 잠금 화면 게이트.
   bool _locked = AuthSession.isAuthenticated && LocalAuthPrefs.biometricEnabled;
+  // 메일 재설정 링크(?reset=토큰)로 열렸으면 재설정 화면.
+  String? _resetToken = Uri.base.queryParameters['reset'];
 
   @override
   void initState() {
@@ -123,14 +126,27 @@ class _TodoAppState extends State<TodoApp> {
       supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
       home: AnimatedSwitcher(
         duration: const Duration(milliseconds: 450),
-        child: _showSplash
-            ? SplashScreen(
-                key: const ValueKey('splash'),
+        child: _resetToken != null
+            ? ResetPasswordScreen(
+                key: const ValueKey('reset'),
+                token: _resetToken!,
                 onDone: () {
-                  if (mounted) setState(() => _showSplash = false);
+                  AuthSession.clear(); // 재설정 후 새 비번으로 로그인하도록
+                  setState(() {
+                    _resetToken = null;
+                    _showSplash = false;
+                    _isAuthenticated = false;
+                  });
                 },
               )
-            : KeyedSubtree(key: const ValueKey('home'), child: _home()),
+            : _showSplash
+                ? SplashScreen(
+                    key: const ValueKey('splash'),
+                    onDone: () {
+                      if (mounted) setState(() => _showSplash = false);
+                    },
+                  )
+                : KeyedSubtree(key: const ValueKey('home'), child: _home()),
       ),
     );
   }
@@ -262,6 +278,41 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final emailCtrl = TextEditingController(text: _emailController.text.trim());
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('비밀번호 찾기'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('가입한 이메일로 재설정 링크를 보내드려요.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: '이메일', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, emailCtrl.text.trim()), child: const Text('보내기')),
+        ],
+      ),
+    );
+    if (email == null || email.isEmpty || !mounted) return;
+    try {
+      await AuthApi.forgotPassword(email);
+    } catch (_) {/* 존재 여부 무관하게 동일 안내 */}
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('메일을 보냈어요. 받은 편지함(스팸함)을 확인하세요.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -367,6 +418,11 @@ class _AuthScreenState extends State<AuthScreen> {
                             },
                       child: Text(_isRegister ? '로그인으로 이동' : '회원가입으로 이동'),
                     ),
+                    if (!_isRegister)
+                      TextButton(
+                        onPressed: _isSubmitting ? null : _forgotPassword,
+                        child: const Text('비밀번호를 잊으셨나요?'),
+                      ),
                   ],
                 ),
               ),
