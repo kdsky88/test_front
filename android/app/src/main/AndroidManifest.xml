@@ -4,6 +4,8 @@
     <!-- 내 주변 추천용 위치 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- 생체 인증 -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- 마감 알림용 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>

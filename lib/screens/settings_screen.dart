@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_api.dart';
+import '../services/local_auth_prefs.dart';
 import '../services/notification_prefs.dart';
 import '../services/notification_service.dart';
 
@@ -24,6 +25,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     hour: NotificationPrefs.morningHour,
     minute: NotificationPrefs.morningMinute,
   );
+
+  bool _bioSupported = false;
+  bool _bioOn = LocalAuthPrefs.biometricEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    LocalAuthPrefs.canUseBiometric().then((v) {
+      if (mounted) setState(() => _bioSupported = v);
+    });
+  }
+
+  Future<void> _toggleBiometric(bool on) async {
+    if (on) {
+      // 켤 때 생체 인증 한 번 통과해야 활성화.
+      final ok = await LocalAuthPrefs.authenticate('생체 잠금을 켤게요');
+      if (!ok) return;
+    }
+    await LocalAuthPrefs.setBiometricEnabled(on);
+    if (mounted) setState(() => _bioOn = on);
+  }
 
   Future<void> _saveLead(int v) async {
     setState(() => _lead = v);
@@ -102,6 +124,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _openPasswordDialog(context),
           ),
+          if (_bioSupported)
+            SwitchListTile(
+              secondary: const Icon(Icons.fingerprint),
+              title: const Text('생체 인증으로 잠금'),
+              subtitle: const Text('앱을 열 때 지문·얼굴로 잠금을 해제해요'),
+              value: _bioOn,
+              onChanged: _toggleBiometric,
+            ),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

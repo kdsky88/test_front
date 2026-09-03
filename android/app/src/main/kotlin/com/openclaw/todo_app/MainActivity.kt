@@ -1,5 +1,6 @@
 package com.openclaw.todo_app
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+// local_auth(생체인증)는 FlutterFragmentActivity를 요구.
+class MainActivity : FlutterFragmentActivity()

@@ -6,10 +6,12 @@ import 'screens/todo_list_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/trips_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/lock_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/api_config.dart';
 import 'services/auth_api.dart';
+import 'services/local_auth_prefs.dart';
 import 'services/notification_prefs.dart';
 import 'services/notification_service.dart';
 
@@ -17,6 +19,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   warmBackend(); // 스플래시 동안 Render 백엔드 콜드스타트 예열(fire-and-forget)
   await AuthSession.load(); // 저장된 토큰 복원 후 시작
+  await LocalAuthPrefs.load(); // 이메일 기억 + 생체 잠금 설정
   await NotificationPrefs.load(); // 알림 설정(미리 알림·아침 요약)
   await NotificationService.init(); // 마감 알림 채널·권한
   runApp(const TodoApp());
@@ -35,6 +38,8 @@ class _TodoAppState extends State<TodoApp> {
   int _selectedTab = 0;
   bool _isAuthenticated = AuthSession.isAuthenticated;
   bool _showSplash = true; // 시작 시 스플래시 애니메이션
+  // 로그인 상태 + 생체 잠금 켜짐이면 잠금 화면 게이트.
+  bool _locked = AuthSession.isAuthenticated && LocalAuthPrefs.biometricEnabled;
 
   @override
   void initState() {
@@ -134,6 +139,16 @@ class _TodoAppState extends State<TodoApp> {
     if (!_isAuthenticated) {
       return AuthScreen(onAuthenticated: _onAuthenticated);
     }
+    if (_locked) {
+      return LockScreen(
+        key: const ValueKey('lock'),
+        onUnlock: () => setState(() => _locked = false),
+        onLogout: () {
+          _logout();
+          setState(() => _locked = false);
+        },
+      );
+    }
     return Scaffold(
       body: IndexedStack(
         index: _selectedTab,
@@ -191,7 +206,19 @@ class _AuthScreenState extends State<AuthScreen> {
   final _nameController = TextEditingController();
   bool _isRegister = false;
   bool _isSubmitting = false;
+  bool _rememberEmail = true;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final saved = LocalAuthPrefs.rememberedEmail;
+    if (saved != null && saved.isNotEmpty) {
+      _emailController.text = saved;
+    } else {
+      _rememberEmail = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -220,6 +247,9 @@ class _AuthScreenState extends State<AuthScreen> {
               password: _passwordController.text,
             );
       AuthSession.update(token);
+      // 이메일 기억: 로그인 성공 시 체크 상태대로 저장/삭제.
+      await LocalAuthPrefs.setRememberedEmail(
+          _rememberEmail ? _emailController.text.trim() : null);
       widget.onAuthenticated();
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -298,6 +328,17 @@ class _AuthScreenState extends State<AuthScreen> {
                           ? '비밀번호를 입력해주세요.'
                           : null,
                     ),
+                    if (!_isRegister)
+                      CheckboxListTile(
+                        value: _rememberEmail,
+                        onChanged: _isSubmitting
+                            ? null
+                            : (v) => setState(() => _rememberEmail = v ?? false),
+                        title: const Text('이메일 기억하기'),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                      ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
                       Text(_error!, style: TextStyle(color: colorScheme.error)),
