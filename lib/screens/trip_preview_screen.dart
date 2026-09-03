@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/todo.dart';
+import '../services/location_perm.dart';
 
 final _timeFmt = DateFormat('HH:mm');
 final _dayFmt = DateFormat('M/d (E)', 'ko');
@@ -73,6 +74,15 @@ class _TripPreviewScreenState extends State<TripPreviewScreen> {
   Todo get _cur => widget.stops[_i];
   bool get _isFirst => _i == 0;
   bool get _isLast => _i == widget.stops.length - 1;
+  bool _myLocation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ensureLocationPermission().then((ok) {
+      if (ok && mounted) setState(() => _myLocation = true);
+    });
+  }
 
   @override
   void dispose() {
@@ -158,7 +168,8 @@ class _TripPreviewScreenState extends State<TripPreviewScreen> {
             markers: markers,
             polylines: {route},
             onMapCreated: (c) => _map = c,
-            myLocationButtonEnabled: false,
+            myLocationEnabled: _myLocation,
+            myLocationButtonEnabled: _myLocation,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
           ),

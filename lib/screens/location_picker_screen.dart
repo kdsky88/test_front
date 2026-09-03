@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/todo.dart'; // ApiException
+import '../services/location_perm.dart';
 import '../services/places_api.dart';
 
 /// 지도 피커가 돌려주는 선택 결과.
@@ -53,6 +54,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   LatLng? _selected;
   String? _placeName;
+  bool _myLocation = false;
 
   @override
   void initState() {
@@ -61,6 +63,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       _selected = LatLng(widget.initialLat!, widget.initialLng!);
     }
     _placeName = widget.initialName;
+    ensureLocationPermission().then((ok) {
+      if (ok && mounted) setState(() => _myLocation = true);
+    });
     final q = widget.initialQuery?.trim() ?? '';
     if (q.isNotEmpty) {
       // 여행 목적지가 있으면 관광지로 시작.
@@ -198,7 +203,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       infoWindow: InfoWindow(title: _placeName ?? '선택한 위치'),
                     ),
                   },
-            myLocationButtonEnabled: false,
+            myLocationEnabled: _myLocation,
+            myLocationButtonEnabled: _myLocation,
+            // 상단 검색 UI와 안 겹치게 내 위치 버튼을 아래로.
+            padding: const EdgeInsets.only(top: 116),
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
           ),

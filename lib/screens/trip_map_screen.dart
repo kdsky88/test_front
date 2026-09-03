@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/todo.dart';
+import '../services/location_perm.dart';
 import '../services/map_links.dart';
 
 /// 전체화면 인터랙티브 지도: 여행의 장소들을 핀으로. focusId 있으면 그 장소로 확대.
@@ -23,6 +24,15 @@ class TripMapScreen extends StatefulWidget {
 
 class _TripMapScreenState extends State<TripMapScreen> {
   GoogleMapController? _controller;
+  bool _myLocation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ensureLocationPermission().then((ok) {
+      if (ok && mounted) setState(() => _myLocation = true);
+    });
+  }
 
   Todo? get _focus {
     final id = widget.focusId;
@@ -102,7 +112,8 @@ class _TripMapScreenState extends State<TripMapScreen> {
         initialCameraPosition: CameraPosition(target: target, zoom: focus != null ? 16 : 12),
         markers: markers,
         onMapCreated: _onCreated,
-        myLocationButtonEnabled: false,
+        myLocationEnabled: _myLocation,
+        myLocationButtonEnabled: _myLocation,
       ),
     );
   }
