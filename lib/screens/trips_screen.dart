@@ -49,7 +49,13 @@ class _TripsScreenState extends State<TripsScreen> {
       _error = null;
     });
     try {
-      final trips = await TripApi.getTrips();
+      final trips = await TripApi.getTrips().then((t) => t.toList());
+      // 최근 여행(시작일 늦은 순)이 위로, 날짜 없는 건 맨 뒤.
+      trips.sort((a, b) {
+        if (a.startDate == null) return b.startDate == null ? 0 : 1;
+        if (b.startDate == null) return -1;
+        return b.startDate!.compareTo(a.startDate!);
+      });
       if (!mounted) return;
       setState(() {
         _trips = trips;
