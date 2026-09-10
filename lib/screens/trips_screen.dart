@@ -8,6 +8,7 @@ import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
+import 'location_picker_screen.dart';
 import 'nearby_screen.dart';
 import 'trip_detail_screen.dart';
 
@@ -316,6 +317,19 @@ class _TripFormDialogState extends State<_TripFormDialog> {
     });
   }
 
+  Future<void> _pickDestination() async {
+    final current = _destinationController.text.trim();
+    final result = await Navigator.of(context).push<PickedLocation>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initialQuery: current.isEmpty ? null : current,
+        ),
+      ),
+    );
+    if (result?.name == null || !mounted) return;
+    setState(() => _destinationController.text = result!.name!);
+  }
+
   Future<void> _submit() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -368,10 +382,15 @@ class _TripFormDialogState extends State<_TripFormDialog> {
             const SizedBox(height: 12),
             TextField(
               controller: _destinationController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '목적지 (선택)',
                 hintText: '예: 제주',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.map_outlined),
+                  tooltip: '지도에서 검색',
+                  onPressed: _pickDestination,
+                ),
               ),
             ),
             const SizedBox(height: 12),
