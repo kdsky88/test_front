@@ -10,8 +10,6 @@ import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
 import 'location_picker_screen.dart';
 import 'nearby_screen.dart';
-import 'settings_screen.dart';
-import 'stats_screen.dart';
 import 'trip_detail_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
@@ -25,9 +23,8 @@ String _rangeLabel(Trip t) {
 }
 
 class TripsScreen extends StatefulWidget {
-  const TripsScreen({super.key, required this.onLogout, required this.notifier});
+  const TripsScreen({super.key, required this.notifier});
 
-  final VoidCallback onLogout;
   final TodoNotifier notifier;
 
   @override
@@ -139,48 +136,6 @@ class _TripsScreenState extends State<TripsScreen> {
               MaterialPageRoute(builder: (_) => const NearbyScreen()),
             ),
             icon: const Icon(Icons.near_me_outlined),
-          ),
-          PopupMenuButton<String>(
-            tooltip: '메뉴',
-            icon: const Icon(Icons.more_vert),
-            onSelected: (v) {
-              switch (v) {
-                case 'stats':
-                  Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const StatsScreen()));
-                case 'settings':
-                  Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                case 'logout':
-                  widget.onLogout();
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'stats',
-                child: ListTile(
-                  leading: Icon(Icons.bar_chart_outlined),
-                  title: Text('통계'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'settings',
-                child: ListTile(
-                  leading: Icon(Icons.settings_outlined),
-                  title: Text('설정'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: 'logout',
-                child: ListTile(
-                  leading: Icon(Icons.logout),
-                  title: Text('로그아웃'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ],
           ),
         ],
       ),

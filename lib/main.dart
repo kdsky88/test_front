@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'theme.dart';
-import 'screens/todo_list_screen.dart';
+import 'screens/more_screen.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/trips_screen.dart';
 import 'screens/splash_screen.dart';
@@ -75,14 +75,10 @@ class _TodoAppState extends State<TodoApp> {
     if (index == _selectedTab) return;
     HapticFeedback.mediumImpact();
     setState(() => _selectedTab = index);
-    // Both views are independent caches, so refresh the one being shown to
-    // reflect changes (edit, complete, delete) made on the other tab. The
-    // reload is silent: existing content stays on screen until fresh data
-    // arrives. Tab 0 = 여행(자체 상태 관리), 1 = 달력, 2 = 할일.
+    // 달력은 독립 캐시라 진입 시 조용히 리프레시(다른 탭에서의 변경 반영).
+    // Tab 0 = 여행(자체 상태 관리), 1 = 달력, 2 = 더보기(할일은 진입 시 자체 로드).
     if (index == 1) {
       _calendarNotifier.loadCalendar(silent: true);
-    } else if (index == 2) {
-      _todoNotifier.loadTodos(silent: true);
     }
   }
 
@@ -169,13 +165,13 @@ class _TodoAppState extends State<TodoApp> {
       body: IndexedStack(
         index: _selectedTab,
         children: [
-          TripsScreen(onLogout: _logout, notifier: _todoNotifier),
+          TripsScreen(notifier: _todoNotifier),
           CalendarScreen(
             calendarNotifier: _calendarNotifier,
             todoNotifier: _todoNotifier,
             onLogout: _logout,
           ),
-          TodoListScreen(
+          MoreScreen(
             notifier: _todoNotifier,
             onLogout: _logout,
           ),
@@ -196,9 +192,9 @@ class _TodoAppState extends State<TodoApp> {
             label: '달력',
           ),
           NavigationDestination(
-            icon: Icon(Icons.checklist_outlined),
-            selectedIcon: Icon(Icons.checklist),
-            label: '할 일',
+            icon: Icon(Icons.apps_outlined),
+            selectedIcon: Icon(Icons.apps),
+            label: '더보기',
           ),
         ],
       ),
