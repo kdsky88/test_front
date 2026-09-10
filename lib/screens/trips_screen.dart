@@ -336,6 +336,10 @@ class _TripFormDialogState extends State<_TripFormDialog> {
       setState(() => _error = '여행 이름을 입력해주세요.');
       return;
     }
+    if (_start == null || _end == null) {
+      setState(() => _error = '여행 기간(시작일·종료일)을 선택해주세요.');
+      return;
+    }
     setState(() {
       _submitting = true;
       _error = null;
