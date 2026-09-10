@@ -18,6 +18,8 @@ import '../services/weather_api.dart';
 import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
+import '../widgets/offline_banner.dart';
+import '../services/day_course.dart';
 import 'currency_screen.dart';
 import 'expenses_screen.dart';
 import 'trip_calendar_screen.dart';
@@ -41,6 +43,7 @@ class TripDetailScreen extends StatefulWidget {
 class _TripDetailScreenState extends State<TripDetailScreen> {
   List<Todo>? _todos;
   bool _loading = true;
+  bool _offline = false; // 캐시로 표시 중(네트워크 실패)
   String? _error;
 
   // 즉흥 추천("아무거나") — 목적지 추천을 타입별 캐시.
@@ -84,6 +87,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       setState(() {
         _todos = todos;
         _loading = false;
+        _offline = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -92,11 +96,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         _loading = false;
       });
     } catch (_) {
+      // 네트워크 실패: 캐시된 일정이 있으면 오프라인 모드로 보여준다.
+      final cached = await TripApi.cachedTripTodos(widget.trip.id);
       if (!mounted) return;
-      setState(() {
-        _error = '서버에 연결할 수 없습니다.';
-        _loading = false;
-      });
+      if (cached.isNotEmpty) {
+        setState(() {
+          _todos = cached;
+          _loading = false;
+          _offline = true;
+        });
+      } else {
+        setState(() {
+          _error = '서버에 연결할 수 없습니다.';
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -325,6 +339,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final days = _days;
     final children = <Widget>[_hero(cover)];
 
+    if (_offline) children.add(const OfflineBanner());
     // 여행 기록: 방문 진행률(장소가 있을 때).
     children.add(_recordBar());
     // 목적지 날씨 스트립(예보 범위 내일 때).
@@ -701,35 +716,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     _showCourse(_buildCourse(attractions, foods));
   }
 
-  List<(String, Place)> _buildCourse(List<Place> attractions, List<Place> foods) {
-    final stops = <(String, Place)>[];
-    if (attractions.isEmpty && foods.isEmpty) return stops;
-    final anchor = attractions.isNotEmpty
-        ? attractions[_rng.nextInt(attractions.length)]
-        : foods[_rng.nextInt(foods.length)];
-    double dist(Place p) =>
-        Geolocator.distanceBetween(anchor.latitude, anchor.longitude, p.latitude, p.longitude);
-    final nearA = [...attractions]..sort((a, b) => dist(a).compareTo(dist(b)));
-    final nearF = [...foods]..sort((a, b) => dist(a).compareTo(dist(b)));
-    final used = <String>{};
-    String key(Place p) => p.fsqId ?? p.name;
-    // 가장 가까운 것만 고정하면 '다시'가 매번 같은 코스가 됨 → 근처 후보(최대 4개) 중 무작위.
-    Place? pickNear(List<Place> sorted) {
-      final cands = sorted.where((p) => !used.contains(key(p))).take(4).toList();
-      if (cands.isEmpty) return null;
-      return cands[_rng.nextInt(cands.length)];
-    }
-
-    void add(String slot, Place? p) {
-      if (p != null && used.add(key(p))) stops.add((slot, p));
-    }
-
-    add('오전', anchor);
-    add('점심', pickNear(nearF));
-    add('오후', pickNear(nearA));
-    add('저녁', pickNear(nearF));
-    return stops;
-  }
+  List<(String, Place)> _buildCourse(List<Place> attractions, List<Place> foods) =>
+      buildDayCourse(attractions, foods,
+          distance: Geolocator.distanceBetween, rng: _rng);
 
   void _showCourse(List<(String, Place)> initial) {
     var stops = initial;

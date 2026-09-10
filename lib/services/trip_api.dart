@@ -4,6 +4,7 @@ import '../models/todo.dart';
 import '../models/trip.dart';
 import 'api_config.dart';
 import 'auth_api.dart';
+import 'offline_cache.dart';
 
 class TripApi {
   static const String baseUrl = apiBaseUrl;
@@ -14,12 +15,23 @@ class TripApi {
       headers: _headers,
     );
     if (response.statusCode == 200) {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return (json['data'] as List)
-          .map((e) => Trip.fromJson(e as Map<String, dynamic>))
-          .toList();
+      OfflineCache.putTrips(response.body); // 오프라인 폴백용
+      return _parseTrips(response.body);
     }
     throw _parseError(response);
+  }
+
+  /// 네트워크 실패 시 마지막으로 받은 여행 목록(없으면 빈 리스트).
+  static Future<List<Trip>> cachedTrips() async {
+    final body = await OfflineCache.getTrips();
+    return body == null ? const [] : _parseTrips(body);
+  }
+
+  static List<Trip> _parseTrips(String body) {
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    return (json['data'] as List)
+        .map((e) => Trip.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<List<Todo>> getTripTodos(String id) async {
@@ -28,12 +40,23 @@ class TripApi {
       headers: _headers,
     );
     if (response.statusCode == 200) {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return (json['data'] as List)
-          .map((e) => Todo.fromJson(e as Map<String, dynamic>))
-          .toList();
+      OfflineCache.putTripTodos(id, response.body); // 오프라인 폴백용
+      return _parseTodos(response.body);
     }
     throw _parseError(response);
+  }
+
+  /// 네트워크 실패 시 그 여행의 마지막 일정(없으면 빈 리스트).
+  static Future<List<Todo>> cachedTripTodos(String id) async {
+    final body = await OfflineCache.getTripTodos(id);
+    return body == null ? const [] : _parseTodos(body);
+  }
+
+  static List<Todo> _parseTodos(String body) {
+    final json = jsonDecode(body) as Map<String, dynamic>;
+    return (json['data'] as List)
+        .map((e) => Todo.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<Trip> createTrip({

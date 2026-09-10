@@ -8,6 +8,7 @@ import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
+import '../widgets/offline_banner.dart';
 import 'location_picker_screen.dart';
 import 'nearby_screen.dart';
 import 'trip_detail_screen.dart';
@@ -34,7 +35,17 @@ class TripsScreen extends StatefulWidget {
 class _TripsScreenState extends State<TripsScreen> {
   List<Trip>? _trips;
   bool _loading = true;
+  bool _offline = false; // 캐시로 표시 중(네트워크 실패)
   String? _error;
+
+  void _sortRecent(List<Trip> trips) {
+    // 최근 여행(시작일 늦은 순)이 위로, 날짜 없는 건 맨 뒤.
+    trips.sort((a, b) {
+      if (a.startDate == null) return b.startDate == null ? 0 : 1;
+      if (b.startDate == null) return -1;
+      return b.startDate!.compareTo(a.startDate!);
+    });
+  }
 
   @override
   void initState() {
@@ -49,16 +60,12 @@ class _TripsScreenState extends State<TripsScreen> {
     });
     try {
       final trips = await TripApi.getTrips().then((t) => t.toList());
-      // 최근 여행(시작일 늦은 순)이 위로, 날짜 없는 건 맨 뒤.
-      trips.sort((a, b) {
-        if (a.startDate == null) return b.startDate == null ? 0 : 1;
-        if (b.startDate == null) return -1;
-        return b.startDate!.compareTo(a.startDate!);
-      });
+      _sortRecent(trips);
       if (!mounted) return;
       setState(() {
         _trips = trips;
         _loading = false;
+        _offline = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -67,11 +74,22 @@ class _TripsScreenState extends State<TripsScreen> {
         _loading = false;
       });
     } catch (_) {
+      // 네트워크 실패: 마지막으로 받은 목록이 있으면 오프라인 모드로 보여준다.
+      final cached = await TripApi.cachedTrips();
       if (!mounted) return;
-      setState(() {
-        _error = '서버에 연결할 수 없습니다.';
-        _loading = false;
-      });
+      if (cached.isNotEmpty) {
+        _sortRecent(cached);
+        setState(() {
+          _trips = cached;
+          _loading = false;
+          _offline = true;
+        });
+      } else {
+        setState(() {
+          _error = '서버에 연결할 수 없습니다.';
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -176,13 +194,20 @@ class _TripsScreenState extends State<TripsScreen> {
         ),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: trips.length,
-      itemBuilder: (context, i) => FadeSlideIn(
-        delay: Duration(milliseconds: (i * 45).clamp(0, 300)),
-        child: _tripCard(trips[i]),
-      ),
+    return Column(
+      children: [
+        if (_offline) const OfflineBanner(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: trips.length,
+            itemBuilder: (context, i) => FadeSlideIn(
+              delay: Duration(milliseconds: (i * 45).clamp(0, 300)),
+              child: _tripCard(trips[i]),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
