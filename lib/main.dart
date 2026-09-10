@@ -330,7 +330,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Icon(
-                      Icons.check_circle_outline,
+                      Icons.flight_takeoff,
                       size: 56,
                       color: colorScheme.primary,
                     ),

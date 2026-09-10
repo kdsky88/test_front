@@ -251,26 +251,50 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.ios_share),
-            tooltip: '공유',
-            onPressed: _shareTrip,
-          ),
-          IconButton(
-            icon: const Icon(Icons.receipt_long_outlined),
-            tooltip: '경비',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ExpensesScreen(tripId: widget.trip.id, tripTitle: widget.trip.title),
+          // 도구(공유·경비·환율)는 계획 화면과 안 섞이게 한 메뉴로 묶음.
+          PopupMenuButton<String>(
+            tooltip: '여행 도구',
+            icon: const Icon(Icons.more_vert),
+            onSelected: (v) {
+              switch (v) {
+                case 'share':
+                  _shareTrip();
+                case 'expenses':
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => ExpensesScreen(
+                        tripId: widget.trip.id, tripTitle: widget.trip.title),
+                  ));
+                case 'currency':
+                  Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CurrencyScreen()));
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'share',
+                child: ListTile(
+                  leading: Icon(Icons.ios_share),
+                  title: Text('공유'),
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.currency_exchange),
-            tooltip: '환율',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CurrencyScreen()),
-            ),
+              PopupMenuItem(
+                value: 'expenses',
+                child: ListTile(
+                  leading: Icon(Icons.receipt_long_outlined),
+                  title: Text('경비'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'currency',
+                child: ListTile(
+                  leading: Icon(Icons.currency_exchange),
+                  title: Text('환율'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -284,7 +308,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Widget _buildBody(Color cover) {
-    if (_loading) {
+    // 첫 로딩만 전체 스피너. 재로딩은 기존 내용을 유지(깜빡임 방지).
+    if (_loading && _todos == null) {
       return ListView(children: const [SizedBox(height: 200), Center(child: CircularProgressIndicator())]);
     }
     if (_error != null) {
@@ -1113,8 +1138,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   Widget _emptyState() {
     final theme = Theme.of(context);
+    final hasDest = widget.trip.destination?.trim().isNotEmpty ?? false;
     return Padding(
-      padding: const EdgeInsets.only(top: 60),
+      padding: const EdgeInsets.only(top: 56, bottom: 8),
       child: Column(
         children: [
           Text('🗓️', style: const TextStyle(fontSize: 48)),
@@ -1122,8 +1148,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           Text('아직 일정이 없어요',
               style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('아래 + 버튼으로 첫 일정을 추가해 보세요.',
-              style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            hasDest ? "위 '아무거나'·'하루 코스'로 채우거나 직접 추가해 보세요." : '일정을 추가해 여행을 채워보세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _addItem,
+            icon: const Icon(Icons.add),
+            label: const Text('일정 추가'),
+          ),
         ],
       ),
     );

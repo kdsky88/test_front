@@ -59,6 +59,32 @@ class TripApi {
     throw _parseError(response);
   }
 
+  static Future<Trip> updateTrip(
+    String id, {
+    required String title,
+    String? destination,
+    String? startDate, // yyyy-MM-dd
+    String? endDate,
+  }) async {
+    // 편집 폼은 항상 모든 필드를 보내므로 present 플래그를 전부 켜서 전송(빈 목적지는 해제).
+    final body = <String, dynamic>{
+      'title': title,
+      'destination': destination ?? '',
+      'startDate': startDate,
+      'endDate': endDate,
+    };
+    final response = await apiClient.patch(
+      Uri.parse('$baseUrl/trips/$id'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return Trip.fromJson(json['data'] as Map<String, dynamic>);
+    }
+    throw _parseError(response);
+  }
+
   static Future<void> deleteTrip(String id) async {
     final response = await apiClient.delete(
       Uri.parse('$baseUrl/trips/$id'),

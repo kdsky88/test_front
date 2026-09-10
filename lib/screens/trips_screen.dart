@@ -10,6 +10,8 @@ import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
 import 'location_picker_screen.dart';
 import 'nearby_screen.dart';
+import 'settings_screen.dart';
+import 'stats_screen.dart';
 import 'trip_detail_screen.dart';
 
 final _dateFmt = DateFormat('yyyy.MM.dd');
@@ -87,6 +89,17 @@ class _TripsScreenState extends State<TripsScreen> {
     }
   }
 
+  Future<void> _openEdit(Trip trip) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _TripFormDialog(existing: trip),
+    );
+    if (saved == true) {
+      HapticFeedback.mediumImpact();
+      _load();
+    }
+  }
+
   Future<void> _confirmDelete(Trip trip) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -127,10 +140,47 @@ class _TripsScreenState extends State<TripsScreen> {
             ),
             icon: const Icon(Icons.near_me_outlined),
           ),
-          IconButton(
-            tooltip: '로그아웃',
-            onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout),
+          PopupMenuButton<String>(
+            tooltip: '메뉴',
+            icon: const Icon(Icons.more_vert),
+            onSelected: (v) {
+              switch (v) {
+                case 'stats':
+                  Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const StatsScreen()));
+                case 'settings':
+                  Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                case 'logout':
+                  widget.onLogout();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'stats',
+                child: ListTile(
+                  leading: Icon(Icons.bar_chart_outlined),
+                  title: Text('통계'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: ListTile(
+                  leading: Icon(Icons.settings_outlined),
+                  title: Text('설정'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('로그아웃'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -144,7 +194,8 @@ class _TripsScreenState extends State<TripsScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    // 첫 로딩만 전체 스피너. 재로딩은 기존 목록을 유지(깜빡임 방지).
+    if (_loading && _trips == null) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
       return ListView(
         children: [
@@ -159,10 +210,15 @@ class _TripsScreenState extends State<TripsScreen> {
     }
     final trips = _trips ?? const [];
     if (trips.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         emoji: '🧳',
         title: '아직 여행이 없어요',
-        subtitle: '아래 + 버튼으로 첫 여행을 계획해 보세요.',
+        subtitle: '목적지만 정하면 관광지·맛집 추천부터 하루 코스까지 채워드려요.',
+        action: FilledButton.icon(
+          onPressed: _openCreate,
+          icon: const Icon(Icons.add),
+          label: const Text('새 여행 만들기'),
+        ),
       );
     }
     return ListView.builder(
@@ -224,16 +280,37 @@ class _TripsScreenState extends State<TripsScreen> {
                       ),
                     Align(
                       alignment: Alignment.bottomRight,
-                      child: InkWell(
-                        onTap: () => _confirmDelete(trip),
-                        borderRadius: BorderRadius.circular(20),
+                      child: PopupMenuButton<String>(
+                        tooltip: '옵션',
+                        onSelected: (v) {
+                          if (v == 'edit') _openEdit(trip);
+                          if (v == 'delete') _confirmDelete(trip);
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: ListTile(
+                              leading: Icon(Icons.edit_outlined),
+                              title: Text('수정'),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: ListTile(
+                              leading: Icon(Icons.delete_outline),
+                              title: Text('삭제'),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ],
                         child: Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.18),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.more_horiz, color: Colors.white, size: 18),
+                          child: const Icon(Icons.more_vert, color: Colors.white, size: 18),
                         ),
                       ),
                     ),
@@ -280,21 +357,26 @@ class _TripsScreenState extends State<TripsScreen> {
   }
 }
 
-/// 새 여행 만들기 다이얼로그. 성공 시 pop(true).
+/// 여행 만들기/수정 다이얼로그. 성공 시 pop(true). existing=null이면 생성.
 class _TripFormDialog extends StatefulWidget {
-  const _TripFormDialog();
+  const _TripFormDialog({this.existing});
+
+  final Trip? existing;
 
   @override
   State<_TripFormDialog> createState() => _TripFormDialogState();
 }
 
 class _TripFormDialogState extends State<_TripFormDialog> {
-  final _titleController = TextEditingController();
-  final _destinationController = TextEditingController();
-  DateTime? _start;
-  DateTime? _end;
+  late final _titleController = TextEditingController(text: widget.existing?.title ?? '');
+  late final _destinationController =
+      TextEditingController(text: widget.existing?.destination ?? '');
+  late DateTime? _start = widget.existing?.startDate;
+  late DateTime? _end = widget.existing?.endDate;
   bool _submitting = false;
   String? _error;
+
+  bool get _isEdit => widget.existing != null;
 
   @override
   void dispose() {
@@ -351,12 +433,25 @@ class _TripFormDialogState extends State<_TripFormDialog> {
       _error = null;
     });
     try {
-      await TripApi.createTrip(
-        title: title,
-        destination: _destinationController.text.trim(),
-        startDate: _start == null ? null : _apiDateFmt.format(_start!),
-        endDate: _end == null ? null : _apiDateFmt.format(_end!),
-      );
+      final destination = _destinationController.text.trim();
+      final startDate = _apiDateFmt.format(_start!);
+      final endDate = _apiDateFmt.format(_end!);
+      if (_isEdit) {
+        await TripApi.updateTrip(
+          widget.existing!.id,
+          title: title,
+          destination: destination,
+          startDate: startDate,
+          endDate: endDate,
+        );
+      } else {
+        await TripApi.createTrip(
+          title: title,
+          destination: destination,
+          startDate: startDate,
+          endDate: endDate,
+        );
+      }
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
       setState(() {
@@ -374,7 +469,7 @@ class _TripFormDialogState extends State<_TripFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('새 여행'),
+      title: Text(_isEdit ? '여행 수정' : '새 여행'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -437,7 +532,7 @@ class _TripFormDialogState extends State<_TripFormDialog> {
           onPressed: _submitting ? null : _submit,
           child: _submitting
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('만들기'),
+              : Text(_isEdit ? '저장' : '만들기'),
         ),
       ],
     );
