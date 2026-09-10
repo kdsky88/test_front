@@ -6,6 +6,7 @@ import '../models/trip.dart';
 import '../services/trip_api.dart';
 import '../state/todo_notifier.dart';
 import '../theme.dart';
+import '../widgets/cover_image.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/offline_banner.dart';
@@ -228,13 +229,17 @@ class _TripsScreenState extends State<TripsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 컬러 커버: 이모지 + D-day + 메뉴
-              Container(
+              // 커버: 목적지 사진(있으면) + 이모지 + D-day + 메뉴
+              SizedBox(
                 height: 92,
-                color: cover,
-                padding: const EdgeInsets.all(12),
                 child: Stack(
+                  fit: StackFit.expand,
                   children: [
+                    CoverImage(destination: trip.destination, fallback: cover),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Stack(
+                        children: [
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(AppTheme.emojiFor(trip.id), style: const TextStyle(fontSize: 40)),
@@ -292,6 +297,9 @@ class _TripsScreenState extends State<TripsScreen> {
                           ),
                           child: const Icon(Icons.more_vert, color: Colors.white, size: 18),
                         ),
+                      ),
+                    ),
+                        ],
                       ),
                     ),
                   ],

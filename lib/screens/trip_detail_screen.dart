@@ -19,6 +19,7 @@ import '../state/todo_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
 import '../widgets/offline_banner.dart';
+import '../widgets/cover_image.dart';
 import '../services/day_course.dart';
 import 'currency_screen.dart';
 import 'expenses_screen.dart';
@@ -401,13 +402,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       final e = t.endDate == null ? '?' : _dateFmt.format(t.endDate!);
       return t.startDate != null && t.endDate == null ? s : '$s ~ $e';
     }();
-    return Container(
-      width: double.infinity,
-      color: cover,
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CoverImage(destination: t.destination, fallback: cover),
+        ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -438,7 +443,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ],
           ),
         ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
