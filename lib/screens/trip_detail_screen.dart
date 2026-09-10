@@ -592,7 +592,27 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
+  // 일정 담을 날짜 선택(여행 기간으로 제한, 기간 없으면 넓게). 취소면 null.
+  Future<DateTime?> _pickTripDay() async {
+    final s = widget.trip.startDate, e = widget.trip.endDate;
+    final now = DateTime.now();
+    final first = DateTime((s ?? DateTime(now.year - 1)).year, (s ?? DateTime(now.year - 1)).month, (s ?? DateTime(now.year - 1)).day);
+    final last = DateTime((e ?? DateTime(now.year + 5)).year, (e ?? DateTime(now.year + 5)).month, (e ?? DateTime(now.year + 5)).day);
+    var initial = s ?? now;
+    if (initial.isBefore(first)) initial = first;
+    if (initial.isAfter(last)) initial = last;
+    return showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
+      helpText: '일정 날짜 선택',
+    );
+  }
+
   Future<void> _addFromSurprise(Place p) async {
+    final day = await _pickTripDay();
+    if (day == null || !mounted) return;
     Navigator.of(context).pop(); // 시트 닫기
     final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder: (_) => TodoFormDialog(
@@ -602,6 +622,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         initialPlaceName: p.name,
         initialLat: p.latitude,
         initialLng: p.longitude,
+        initialDueAt: day,
       ),
     ));
     if (ok == true) _load();
@@ -766,12 +787,22 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _addCourse(List<(String, Place)> stops) async {
+    final day = await _pickTripDay();
+    if (day == null || !mounted) return;
     Navigator.of(context).pop(); // 시트 닫기
-    for (final (_, p) in stops) {
+    int hourFor(String slot) => switch (slot) {
+          '점심' => 12,
+          '오후' => 15,
+          '저녁' => 19,
+          _ => 9, // 오전
+        };
+    for (final (slot, p) in stops) {
+      final at = DateTime(day.year, day.month, day.day, hourFor(slot));
       await widget.notifier.createTodo(
         title: p.name,
         priority: TodoPriority.medium,
         tripId: widget.trip.id,
+        startAt: at.toUtc().toIso8601String(),
         latitude: p.latitude,
         longitude: p.longitude,
         placeName: p.name,
