@@ -713,14 +713,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final nearF = [...foods]..sort((a, b) => dist(a).compareTo(dist(b)));
     final used = <String>{};
     String key(Place p) => p.fsqId ?? p.name;
+    // 가장 가까운 것만 고정하면 '다시'가 매번 같은 코스가 됨 → 근처 후보(최대 4개) 중 무작위.
+    Place? pickNear(List<Place> sorted) {
+      final cands = sorted.where((p) => !used.contains(key(p))).take(4).toList();
+      if (cands.isEmpty) return null;
+      return cands[_rng.nextInt(cands.length)];
+    }
+
     void add(String slot, Place? p) {
       if (p != null && used.add(key(p))) stops.add((slot, p));
     }
 
     add('오전', anchor);
-    add('점심', nearF.isNotEmpty ? nearF.first : null);
-    add('오후', nearA.where((p) => !used.contains(key(p))).firstOrNull);
-    add('저녁', nearF.where((p) => !used.contains(key(p))).firstOrNull);
+    add('점심', pickNear(nearF));
+    add('오후', pickNear(nearA));
+    add('저녁', pickNear(nearF));
     return stops;
   }
 
