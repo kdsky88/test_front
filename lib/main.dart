@@ -224,40 +224,35 @@ class _BottomNav extends StatelessWidget {
   Widget _item(int i, ColorScheme scheme) {
     final (outlined, filled, label) = _items[i];
     final sel = i == selected;
-    final fg = sel ? scheme.onPrimaryContainer : scheme.onSurfaceVariant;
-    // 탭 슬롯 전체를 탭 영역으로 두고, 그 안에 아이콘+라벨을 감싼 컴팩트 pill을 중앙 배치
-    // (예전엔 pill이 라벨 폭에 딱 붙어 좌측으로 붕 떠 보였음).
+    // 배경 블럭 없이 선택/비선택 대비를 크게: 선택=코럴+채운 아이콘(살짝 큼)+굵은 라벨,
+    // 비선택=흐린 회색+아웃라인+보통 굵기.
+    final color = sel ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.6);
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(16),
       onTap: () => onSelect(i),
       child: SizedBox(
         height: 54,
-        child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-            decoration: BoxDecoration(
-              color: sel ? scheme.primaryContainer : Colors.transparent,
-              borderRadius: BorderRadius.circular(18),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedScale(
+              scale: sel ? 1.0 : 0.88,
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              child: Icon(sel ? filled : outlined, size: 26, color: color),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(sel ? filled : outlined, size: 22, color: fg),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    height: 1,
-                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                    color: fg,
-                  ),
-                ),
-              ],
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1,
+                fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
+                color: color,
+              ),
+              child: Text(label),
             ),
-          ),
+          ],
         ),
       ),
     );
