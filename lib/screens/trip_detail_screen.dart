@@ -347,6 +347,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     children.add(_weatherStrip());
     // 즉흥/하루 코스 버튼(목적지 있을 때).
     children.add(_actionButtons());
+    // AI 코스 추천(목적지 있을 때).
+    children.add(_curateButton());
 
     // 위치가 있는 일정을 여행 지도에 핀으로.
     final located = (_todos ?? const [])
@@ -698,6 +700,77 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // AI 코스 추천 버튼(목적지 있을 때만).
+  Widget _curateButton() {
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: FilledButton.tonalIcon(
+        onPressed: _curate,
+        icon: const Icon(Icons.auto_awesome_outlined),
+        label: const Text('AI 코스 추천'),
+      ),
+    );
+  }
+
+  // 목적지+여행일수 → Claude 큐레이션 텍스트를 시트로.
+  Future<void> _curate() async {
+    final dest = widget.trip.destination?.trim();
+    if (dest == null || dest.isEmpty) return;
+    HapticFeedback.mediumImpact();
+    final days = _days.isNotEmpty ? _days.length : 2;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    String? text;
+    String? error;
+    try {
+      text = await PlacesApi.curate(region: dest, days: days);
+    } on ApiException catch (e) {
+      error = e.error.code == 'CURATION_NOT_CONFIGURED'
+          ? 'AI 추천이 아직 설정되지 않았어요.'
+          : e.error.message;
+    } catch (_) {
+      error = 'AI 추천을 불러오지 못했어요.';
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop(); // 로딩 닫기
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    _showCuration(dest, text!);
+  }
+
+  void _showCuration(String dest, String text) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        builder: (ctx, controller) => SafeArea(
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            children: [
+              Text('✨ $dest AI 코스',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              SelectableText(text, style: const TextStyle(fontSize: 14.5, height: 1.5)),
+            ],
+          ),
+        ),
       ),
     );
   }
