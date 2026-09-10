@@ -169,7 +169,6 @@ class _TodoAppState extends State<TodoApp> {
           CalendarScreen(
             calendarNotifier: _calendarNotifier,
             todoNotifier: _todoNotifier,
-            onLogout: _logout,
           ),
           MoreScreen(
             notifier: _todoNotifier,
@@ -177,26 +176,85 @@ class _TodoAppState extends State<TodoApp> {
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedTab,
-        onDestinationSelected: _onTabSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.luggage_outlined),
-            selectedIcon: Icon(Icons.luggage),
-            label: '여행',
+      bottomNavigationBar: _BottomNav(
+        selected: _selectedTab,
+        onSelect: _onTabSelected,
+      ),
+    );
+  }
+}
+
+/// 하단 탭. M3 NavigationBar는 선택 인디케이터가 아이콘만 감싸므로,
+/// 아이콘+라벨을 통째로 블럭(pill) 처리하려고 직접 만든다.
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({required this.selected, required this.onSelect});
+
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  static const _items = <(IconData, IconData, String)>[
+    (Icons.luggage_outlined, Icons.luggage, '여행'),
+    (Icons.calendar_month_outlined, Icons.calendar_month, '달력'),
+    (Icons.apps_outlined, Icons.apps, '더보기'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final bg = theme.navigationBarTheme.backgroundColor ?? scheme.surface;
+    return Material(
+      color: bg,
+      elevation: 3,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              for (var i = 0; i < _items.length; i++)
+                Expanded(child: _item(i, scheme)),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: '달력',
+        ),
+      ),
+    );
+  }
+
+  Widget _item(int i, ColorScheme scheme) {
+    final (outlined, filled, label) = _items[i];
+    final sel = i == selected;
+    final fg = sel ? scheme.onPrimaryContainer : scheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => onSelect(i),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: sel ? scheme.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.apps_outlined),
-            selectedIcon: Icon(Icons.apps),
-            label: '더보기',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(sel ? filled : outlined, size: 24, color: fg),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -25,7 +25,7 @@ class MoreScreen extends StatelessWidget {
             title: '할 일 목록',
             subtitle: '여행과 상관없는 할 일까지 한 곳에서',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => TodoListScreen(notifier: notifier, onLogout: onLogout),
+              builder: (_) => TodoListScreen(notifier: notifier),
             )),
           ),
           _tile(

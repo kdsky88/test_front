@@ -7,18 +7,15 @@ import '../state/todo_notifier.dart';
 import '../widgets/todo_form_dialog.dart';
 import '../widgets/todo_detail_sheet.dart';
 import '../widgets/priority_badge.dart';
-import 'settings_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   final CalendarNotifier calendarNotifier;
   final TodoNotifier todoNotifier;
-  final VoidCallback onLogout;
 
   const CalendarScreen({
     super.key,
     required this.calendarNotifier,
     required this.todoNotifier,
-    required this.onLogout,
   });
 
   @override
@@ -44,20 +41,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
           appBar: AppBar(
             title: const Text('달력'),
             centerTitle: false,
-            actions: [
-              IconButton(
-                tooltip: '설정',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                ),
-                icon: const Icon(Icons.settings_outlined),
-              ),
-              IconButton(
-                tooltip: '로그아웃',
-                onPressed: widget.onLogout,
-                icon: const Icon(Icons.logout),
-              ),
-            ],
             // 첫 방문 달(캐시 없음) 백그라운드 로딩 시 상단 얇은 인디케이터.
             bottom: (n.backgroundLoading && n.calendarData.isEmpty)
                 ? const PreferredSize(
