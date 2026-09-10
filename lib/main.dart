@@ -209,7 +209,7 @@ class _BottomNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
             children: [
               for (var i = 0; i < _items.length; i++)
@@ -225,34 +225,38 @@ class _BottomNav extends StatelessWidget {
     final (outlined, filled, label) = _items[i];
     final sel = i == selected;
     final fg = sel ? scheme.onPrimaryContainer : scheme.onSurfaceVariant;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => onSelect(i),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: sel ? scheme.primaryContainer : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(sel ? filled : outlined, size: 24, color: fg),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1,
-                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                  color: fg,
+    // 탭 슬롯 전체를 탭 영역으로 두고, 그 안에 아이콘+라벨을 감싼 컴팩트 pill을 중앙 배치
+    // (예전엔 pill이 라벨 폭에 딱 붙어 좌측으로 붕 떠 보였음).
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => onSelect(i),
+      child: SizedBox(
+        height: 54,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+            decoration: BoxDecoration(
+              color: sel ? scheme.primaryContainer : Colors.transparent,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(sel ? filled : outlined, size: 22, color: fg),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1,
+                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                    color: fg,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

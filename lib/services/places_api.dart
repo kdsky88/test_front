@@ -31,20 +31,6 @@ class PlacesApi {
     throw _parseError(response);
   }
 
-  /// AI 코스 큐레이션(Claude). 지역+일수 → 간결한 코스 텍스트.
-  static Future<String> curate({required String region, int days = 2}) async {
-    final uri = Uri.parse('$baseUrl/places/curate').replace(queryParameters: {
-      'region': region,
-      'days': '$days',
-    });
-    final response = await apiClient.get(uri, headers: _headers);
-    if (response.statusCode == 200) {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return json['data'] as String;
-    }
-    throw _parseError(response);
-  }
-
   /// 현재 위치 반경 추천(내 주변). type='attraction'|'food'.
   static Future<List<Place>> nearby({
     required double lat,
