@@ -628,17 +628,8 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
 
   Future<void> _deleteItem(Todo todo) async {
     HapticFeedback.mediumImpact();
-    // 낙관적 제거: 즉시 목록에서 빼 반응을 빠르게(네트워크는 뒤에서). refetch 안 함.
+    // 낙관적: 목록에서 즉시 빼고 스낵바도 바로 띄운다(서버 응답 안 기다림). refetch 안 함.
     setState(() => _items = (_items ?? const []).where((t) => t.id != todo.id).toList());
-    final deleted = await widget.notifier.deleteTodo(todo.id);
-    if (!mounted) return;
-    if (!deleted) {
-      _load(); // 실패 시 서버 상태로 원복
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('삭제에 실패했어요.')),
-      );
-      return;
-    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
@@ -651,5 +642,12 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
           },
         ),
       ));
+    // 서버 삭제는 백그라운드. 실패했을 때만 원복 + 에러 안내.
+    final deleted = await widget.notifier.deleteTodo(todo.id);
+    if (!mounted || deleted) return;
+    _load();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('삭제에 실패했어요.')));
   }
 }
