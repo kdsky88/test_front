@@ -1077,13 +1077,39 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
+  // 스와이프 삭제 시 뒤로 드러나는 빨간 삭제 배경.
+  Widget _swipeDeleteBg(ThemeData theme) => Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.error,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete, color: Colors.white),
+            SizedBox(width: 6),
+            Text('삭제', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+
   Widget _itemCard(Todo todo) {
     final theme = Theme.of(context);
     final when = todo.startAt ?? todo.dueAt;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Card(
-        child: InkWell(
+      child: Dismissible(
+        key: ValueKey(todo.id),
+        direction: DismissDirection.endToStart,
+        background: _swipeDeleteBg(theme),
+        confirmDismiss: (_) async {
+          await _deleteItem(todo);
+          return false; // 실제 제거는 _load 리빌드가 처리(중복 제거 에러 방지)
+        },
+        child: Card(
+          child: InkWell(
           // 탭 = 지도(장소 있을 때), 없으면 수정. 수정은 우측 연필로.
           onTap: () => todo.latitude != null ? _openMap(focusId: todo.id) : _editItem(todo),
           borderRadius: BorderRadius.circular(AppTheme.radius),
@@ -1180,6 +1206,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -567,7 +567,20 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
 
   Widget _itemTile(BuildContext context, Todo todo) {
     final when = todo.startAt ?? todo.dueAt;
-    return ListTile(
+    return Dismissible(
+      key: ValueKey(todo.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: Theme.of(context).colorScheme.error,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      confirmDismiss: (_) async {
+        await _deleteItem(todo);
+        return false;
+      },
+      child: ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: Icon(
@@ -612,6 +625,7 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
         ],
       ),
       onTap: () => _editItem(todo),
+      ),
     );
   }
 
