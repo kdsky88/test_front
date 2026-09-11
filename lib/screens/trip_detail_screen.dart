@@ -137,6 +137,31 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     if (ok == true) _load();
   }
 
+  Future<void> _deleteItem(Todo todo) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('일정 삭제'),
+        content: Text("'${todo.title}'을(를) 삭제할까요?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    HapticFeedback.mediumImpact();
+    final deleted = await widget.notifier.deleteTodo(todo.id);
+    if (!mounted) return;
+    if (deleted) {
+      _load();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('삭제에 실패했어요.')),
+      );
+    }
+  }
+
   // 방문 체크 = 그 일정 완료 토글(completed 재사용). 낙관적 반영 후 서버 반영.
   Future<void> _toggleVisited(Todo todo) async {
     HapticFeedback.mediumImpact();
@@ -1125,11 +1150,31 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  tooltip: '수정',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _editItem(todo),
+                PopupMenuButton<String>(
+                  tooltip: '옵션',
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onSelected: (v) {
+                    if (v == 'edit') _editItem(todo);
+                    if (v == 'delete') _deleteItem(todo);
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: ListTile(
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('수정'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline),
+                        title: Text('삭제'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
