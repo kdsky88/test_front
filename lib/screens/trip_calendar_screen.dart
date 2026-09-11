@@ -576,10 +576,7 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
         color: Theme.of(context).colorScheme.error,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      confirmDismiss: (_) async {
-        await _deleteItem(todo);
-        return false;
-      },
+      onDismissed: (_) => _deleteItem(todo),
       child: ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
@@ -630,27 +627,29 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
   }
 
   Future<void> _deleteItem(Todo todo) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('일정 삭제'),
-        content: Text("'${todo.title}'을(를) 삭제할까요?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제')),
-        ],
-      ),
-    );
-    if (ok != true) return;
     HapticFeedback.mediumImpact();
+    // 낙관적 제거: 즉시 목록에서 빼 반응을 빠르게(네트워크는 뒤에서). refetch 안 함.
+    setState(() => _items = (_items ?? const []).where((t) => t.id != todo.id).toList());
     final deleted = await widget.notifier.deleteTodo(todo.id);
     if (!mounted) return;
-    if (deleted) {
-      _load();
-    } else {
+    if (!deleted) {
+      _load(); // 실패 시 서버 상태로 원복
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('삭제에 실패했어요.')),
       );
+      return;
     }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text("'${todo.title}' 삭제됨"),
+        action: SnackBarAction(
+          label: '실행취소',
+          onPressed: () async {
+            await widget.notifier.restoreTodo(todo);
+            if (mounted) _load();
+          },
+        ),
+      ));
   }
 }

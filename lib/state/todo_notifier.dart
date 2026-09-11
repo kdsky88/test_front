@@ -269,14 +269,22 @@ class TodoNotifier extends ChangeNotifier {
   /// Undo a delete by re-creating the todo from its fields.
   /// ponytail: recreates as a new active todo (new id, completed state dropped)
   /// — fine for accidental-delete undo; switch to soft-delete if id must survive.
+  /// 여행 연결(tripId)·장소·하위항목까지 복원 → 여행 일정 삭제 undo가 온전히 복구됨.
   Future<String?> restoreTodo(Todo t) => createTodo(
     title: t.title,
     priority: t.priority,
+    description: t.description,
     note: t.note,
     startAt: t.startAt?.toUtc().toIso8601String(),
     dueAt: t.dueAt?.toUtc().toIso8601String(),
     recurrence: t.recurrence.apiValue,
+    assignedToEmail: t.assignedToEmail,
+    tripId: t.tripId,
+    latitude: t.latitude,
+    longitude: t.longitude,
+    placeName: t.placeName,
     tags: t.tags,
+    subtasks: t.subtasks,
   );
 
   /// Returns null on success, error message on failure.

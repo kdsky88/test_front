@@ -138,28 +138,30 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _deleteItem(Todo todo) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('일정 삭제'),
-        content: Text("'${todo.title}'을(를) 삭제할까요?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제')),
-        ],
-      ),
-    );
-    if (ok != true) return;
     HapticFeedback.mediumImpact();
+    // 낙관적 제거: 즉시 목록에서 빼 반응을 빠르게(네트워크는 뒤에서). refetch 안 함.
+    setState(() => _todos = (_todos ?? const []).where((t) => t.id != todo.id).toList());
     final deleted = await widget.notifier.deleteTodo(todo.id);
     if (!mounted) return;
-    if (deleted) {
-      _load();
-    } else {
+    if (!deleted) {
+      _load(); // 실패 시 서버 상태로 원복
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('삭제에 실패했어요.')),
       );
+      return;
     }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text("'${todo.title}' 삭제됨"),
+        action: SnackBarAction(
+          label: '실행취소',
+          onPressed: () async {
+            await widget.notifier.restoreTodo(todo);
+            if (mounted) _load();
+          },
+        ),
+      ));
   }
 
   // 방문 체크 = 그 일정 완료 토글(completed 재사용). 낙관적 반영 후 서버 반영.
@@ -1104,10 +1106,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         key: ValueKey(todo.id),
         direction: DismissDirection.endToStart,
         background: _swipeDeleteBg(theme),
-        confirmDismiss: (_) async {
-          await _deleteItem(todo);
-          return false; // 실제 제거는 _load 리빌드가 처리(중복 제거 에러 방지)
-        },
+        // 확인 없이 바로 삭제 → _deleteItem이 즉시 목록에서 제거(트리 일관성 유지) + 실행취소 스낵바.
+        onDismissed: (_) => _deleteItem(todo),
         child: Card(
           child: InkWell(
           // 탭 = 지도(장소 있을 때), 없으면 수정. 수정은 우측 연필로.
