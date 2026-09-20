@@ -15,6 +15,7 @@ import 'services/auth_api.dart';
 import 'services/local_auth_prefs.dart';
 import 'services/notification_prefs.dart';
 import 'services/notification_service.dart';
+import 'services/geofence_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,7 +69,10 @@ class _TodoAppState extends State<TodoApp> {
       }
     };
     // 이미 로그인 상태(토큰 복원)면 알림 예약
-    if (_isAuthenticated) NotificationService.sync();
+    if (_isAuthenticated) {
+      NotificationService.sync();
+      syncNearbyGeofences(); // 근처 알림 지오펜스 갱신(옵트인 꺼져있으면 내부에서 해제)
+    }
   }
 
   void _onTabSelected(int index) {
@@ -88,6 +92,7 @@ class _TodoAppState extends State<TodoApp> {
     _todoNotifier.loadTodos(initial: true);
     _todoNotifier.loadAssignees();
     NotificationService.sync();
+    syncNearbyGeofences(); // 근처 알림 지오펜스 갱신(옵트인 꺼져있으면 내부에서 해제)
   }
 
   void _logout() {

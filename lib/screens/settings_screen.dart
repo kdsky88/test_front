@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/auth_api.dart';
+import '../services/geofence_service.dart';
 import '../services/local_auth_prefs.dart';
+import '../services/location_perm.dart';
 import '../services/notification_prefs.dart';
 import '../services/notification_service.dart';
 
@@ -28,6 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _bioSupported = false;
   bool _bioOn = LocalAuthPrefs.biometricEnabled;
+  bool _nearbyOn = NotificationPrefs.nearbyEnabled;
 
   @override
   void initState() {
@@ -51,6 +55,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _lead = v);
     await NotificationPrefs.setLeadMinutes(v);
     await NotificationService.sync(); // 즉시 재예약
+  }
+
+  Future<void> _toggleNearby(bool on) async {
+    if (on) {
+      final ok = await ensureBackgroundLocation();
+      if (!ok && mounted) {
+        // 배경 권한 미승격 → 안내 후 설정 열기. 켜기는 진행(승격되면 다음 동기화 때 동작).
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('위치를 "항상 허용"으로'),
+            content: const Text('앱이 꺼져 있어도 근처 장소를 알리려면 위치 권한을 "항상 허용"으로 바꿔주세요.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('나중에')),
+              TextButton(
+                onPressed: () { Navigator.pop(context); Geolocator.openAppSettings(); },
+                child: const Text('설정 열기'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+    await NotificationPrefs.setNearbyEnabled(on);
+    if (mounted) setState(() => _nearbyOn = on);
+    await syncNearbyGeofences();
   }
 
   Future<void> _saveMorning({bool? enabled, TimeOfDay? time}) async {
@@ -95,6 +125,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: const Text('매일 정해진 시각에 오늘 할 일 개수를 알려줘요'),
             value: _morningOn,
             onChanged: (v) => _saveMorning(enabled: v),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.near_me_outlined),
+            title: const Text('근처 장소 알림'),
+            subtitle: const Text('여행 중 저장한 장소 근처에 오면 알려줘요'),
+            value: _nearbyOn,
+            onChanged: _toggleNearby,
           ),
           if (_morningOn)
             ListTile(
