@@ -6,11 +6,13 @@ class NotificationPrefs {
   static bool morningEnabled = false;
   static int morningHour = 8;
   static int morningMinute = 0;
+  static bool nearbyEnabled = false;
 
   static const _kLead = 'notif_lead_minutes';
   static const _kMorningOn = 'notif_morning_enabled';
   static const _kMorningH = 'notif_morning_hour';
   static const _kMorningM = 'notif_morning_minute';
+  static const _kNearby = 'notif_nearby_enabled';
 
   static Future<void> load() async {
     final p = await SharedPreferences.getInstance();
@@ -18,6 +20,7 @@ class NotificationPrefs {
     morningEnabled = p.getBool(_kMorningOn) ?? false;
     morningHour = p.getInt(_kMorningH) ?? 8;
     morningMinute = p.getInt(_kMorningM) ?? 0;
+    nearbyEnabled = p.getBool(_kNearby) ?? false;
   }
 
   static Future<void> setLeadMinutes(int v) async {
@@ -38,5 +41,11 @@ class NotificationPrefs {
     await p.setBool(_kMorningOn, enabled);
     await p.setInt(_kMorningH, hour);
     await p.setInt(_kMorningM, minute);
+  }
+
+  static Future<void> setNearbyEnabled(bool v) async {
+    nearbyEnabled = v;
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kNearby, v);
   }
 }

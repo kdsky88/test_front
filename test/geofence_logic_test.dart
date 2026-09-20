@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_front/models/trip.dart';
 import 'package:test_front/models/todo.dart';
 import 'package:test_front/services/geofence_logic.dart';
+import 'package:test_front/services/notification_prefs.dart';
 
 Trip trip(String id, DateTime? s, DateTime? e) =>
     Trip(id: id, title: 'trip-$id', startDate: s, endDate: e);
@@ -60,6 +62,17 @@ void main() {
     test('쿨다운 이내면 false, 딱 지나면 true', () {
       expect(shouldNotify(now.subtract(const Duration(hours: 5)), now, const Duration(hours: 6)), isFalse);
       expect(shouldNotify(now.subtract(const Duration(hours: 6)), now, const Duration(hours: 6)), isTrue);
+    });
+  });
+
+  group('NotificationPrefs.nearbyEnabled', () {
+    test('기본 false, set 후 load하면 유지', () async {
+      SharedPreferences.setMockInitialValues({});
+      await NotificationPrefs.load();
+      expect(NotificationPrefs.nearbyEnabled, isFalse);
+      await NotificationPrefs.setNearbyEnabled(true);
+      await NotificationPrefs.load();
+      expect(NotificationPrefs.nearbyEnabled, isTrue);
     });
   });
 }
