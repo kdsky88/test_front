@@ -97,7 +97,10 @@ Future<void> nearbyGeofenceCallback(GeofenceCallbackParams params) async {
         lastMs == null ? null : DateTime.fromMillisecondsSinceEpoch(lastMs);
     if (!shouldNotify(lastAt, now, _kCooldown)) continue;
     final name = names[id] ?? '저장한 장소';
-    await plugin.show(id.hashCode & 0x7fffffff, '계획한 $name 근처예요',
+    // 알림 ID: due-reminder 범위 [0, 1.9e9) 및 morningId(1999999999)와 충돌 방지를
+    // 위해 지오펜스 알림은 2_000_000_000 이상 범위를 사용.
+    final notifId = 2000000000 + (id.hashCode & 0x7fffffff) % 100000000;
+    await plugin.show(notifId, '계획한 $name 근처예요',
         '가는 김에 들러볼까요?', details);
     await prefs.setInt('$_kLastPrefix$id', now.millisecondsSinceEpoch);
   }
