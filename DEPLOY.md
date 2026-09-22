@@ -1,61 +1,76 @@
 # 배포 가이드 (test_front)
 
-Flutter 앱을 **3채널**로 배포한다. 백엔드는 별도 레포(`test_backend`, Render) 참고.
+Flutter 웹(PWA)과 Android APK를 Firebase로 배포한다. 아래 명령은 `test_front/`에서 실행한다. iOS 배포는 구성되지 않았다.
 
-- **prod 백엔드 URL**: `https://test-backend-83yt.onrender.com`
-- **Firebase 프로젝트**: `test-todo-app-f4c9a` (로그인: kdsky88@gmail.com, `firebase login` 필요)
-- 릴리스 빌드는 `--dart-define=API_BASE_URL=https://...`를 **강제**한다(android/app/build.gradle.kts 가드). 빼면 빌드 실패.
+- 백엔드: `https://test-backend-83yt.onrender.com`
+- Firebase 프로젝트: `test-todo-app-f4c9a`
+- 웹: https://test-todo-app-f4c9a.web.app
 
-## 1. 웹 (Firebase Hosting → PWA)
+## 배포 전 검증
 
-라이브: https://test-todo-app-f4c9a.web.app
+```bash
+flutter pub get
+flutter analyze
+flutter test
+```
+
+`.github/workflows/ci.yml`은 Flutter 3.44.1 / Dart 3.12.1로 분석, 테스트, 웹 빌드를 실행한다. 실제 Firebase 배포와 APK 배포는 수동이다. CI 웹 빌드는 지도 키를 주입하지 않으므로 지도 동작은 배포 환경에서 별도 확인한다.
+
+이번 변경은 계정별 캐시, 로그아웃 시 캐시·화면 상태 초기화, 늦게 도착한 인증 응답 무시, 조회 요청만 네트워크 재시도하는 처리를 포함한다. **POST/PATCH/DELETE는 네트워크 오류만으로 자동 재전송하지 않는다.** 저장 중 응답이 유실되면 목록을 새로 조회해 반영 여부를 확인한 뒤 다시 저장한다. `401` 인증 갱신 후 재전송은 한 번 허용한다.
+
+앱 시작 시 이전 공용 오프라인 캐시를 제거하므로 업데이트 직후에는 온라인에서 여행 목록을 한 번 조회해야 한다. 백엔드 V9 배포 후 기존 세션은 재로그인이 필요하다. 프론트를 먼저 배포하고 백엔드 배포 후 아래 항목을 확인한다.
+
+- 계정 A 로그아웃 → B 로그인 → 통신 실패 시 A의 여행·달력·일정이 표시되지 않는지.
+- 토큰 갱신 중 로그아웃하거나 계정을 바꿔도 이전 계정으로 복귀하지 않는지.
+- 비밀번호 변경 후 로그인 화면으로 이동하고, 이전 재설정 링크를 재사용할 수 없는지.
+- 여행 상세의 로딩/오류/오프라인 표시와 경비 입력 경계값이 정상인지.
+
+## 지도와 장소 검색 설정
+
+현재 지도는 **Google Maps**(`google_maps_flutter`), 장소 검색은 백엔드의 **Google Places 프록시**다. 이전 Nominatim/OSM 배포 설명은 적용되지 않는다.
+
+- 웹: `web/index.html`의 `__MAPS_WEB_KEY__` 자리표시자를 빌드 결과에서 교체한다. 웹용 키에는 배포 도메인에 맞는 HTTP referrer 제한을 설정한다.
+- Android: `android/key.properties`의 `mapsApiKey` 또는 `ANDROID_MAPS_API_KEY`로 주입한다. 키 제한은 앱 패키지와 서명 인증서에 맞춘다.
+- 서버 Places 키 `GOOGLE_PLACES_KEY`는 Render에만 설정한다.
+
+## 웹: Firebase Hosting
+
+`firebase login` 후 다음을 실행한다. 웹 빌드에는 Android의 API URL 강제 검사기가 적용되지 않으므로 URL을 반드시 명시한다.
 
 ```bash
 flutter build web --dart-define=API_BASE_URL=https://test-backend-83yt.onrender.com
+# MAPS_WEB_KEY 환경변수를 설정한 터미널에서 실행(키를 명령 출력에 노출하지 않음).
+python3 - <<'PYKEY'
+import os
+from pathlib import Path
+key = os.environ['MAPS_WEB_KEY']
+if not key or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-' for c in key):
+    raise SystemExit('Invalid MAPS_WEB_KEY')
+page = Path('build/web/index.html')
+text = page.read_text()
+if '__MAPS_WEB_KEY__' not in text:
+    raise SystemExit('Map key placeholder missing; rebuild first')
+page.write_text(text.replace('__MAPS_WEB_KEY__', key))
+PYKEY
 npx firebase-tools deploy --only hosting --project test-todo-app-f4c9a
 ```
 
-- 설정: `firebase.json`(`public: build/web`, SPA rewrite).
-- 홈화면에 "추가"하면 PWA로 설치됨 → 배포 후 앱 재실행 시 서비스워커가 자동 갱신(한 번 늦게 반영).
+`firebase.json`은 `build/web`을 배포하고 SPA rewrite를 적용한다. 배포 후 브라우저/PWA를 다시 열어 실제 버전, 로그인, 지도, 장소 검색을 확인한다. 소스 HTML에 키를 직접 저장하지 않는다.
 
-## 2. 폰 (Firebase App Distribution → 네이티브 APK)
+## Android: Firebase App Distribution
 
-폰의 **App Tester** 앱에 "새 버전 다운로드" 알림이 뜬다.
+1. `pubspec.yaml`의 `version` 빌드번호 `+NN`을 올린다.
+2. 로컬 `android/key.properties`와 서명 키스토어, 지도 키를 준비한다. 파일 경로는 `storeFile` 설정에 맞춘다. 서명 파일과 비밀번호는 커밋하지 않는다.
+3. 릴리스 APK를 빌드하고 실제 기기에서 지도·검색·로그인·근처 알림을 확인한다.
 
 ```bash
-# 1) pubspec.yaml의 version 빌드번호(+NN)를 반드시 올린다 (안 올리면 폰에서 같은 버전이라 설치 애매)
-#    예: version: 1.8.5+23  →  1.8.6+24
-
-# 2) 서명된 릴리스 APK 빌드
 flutter build apk --release --dart-define=API_BASE_URL=https://test-backend-83yt.onrender.com
-
-# 3) testers 그룹에 배포
 npx firebase-tools appdistribution:distribute \
   build/app/outputs/flutter-apk/app-release.apk \
   --app 1:183473872894:android:91048b780912ed08746aaf \
   --project test-todo-app-f4c9a \
   --groups testers \
-  --release-notes "변경 요약"
+  --release-notes "계정 데이터 격리, 인증 안정성 및 요청 재시도 개선"
 ```
 
-- **App ID(안드로이드)**: `1:183473872894:android:91048b780912ed08746aaf`
-- **테스터 그룹**: `testers`
-- **서명**: `android/key.properties` + `android/app/upload-keystore.jks` (둘 다 gitignore, 로컬에 있어야 릴리스 서명됨). 없으면 릴리스 빌드 실패.
-
-## 외부 API — OSM Nominatim (장소 검색, `lib/services/geocoding_api.dart`)
-
-무료·API 키 불필요지만 사용 정책이 있고, 어기면 **런타임에 403 / IP 차단**된다(빌드는 통과하므로 analyze로 안 잡힘).
-
-- **User-Agent 필수**: 일반/빈 UA는 403. 현재 값 `test-todo-app/1.0 (kdsky88@gmail.com)`.
-  - ⚠️ **APK 전용 함정**: 웹은 브라우저가 UA를 대신 채워 통과하지만, **네이티브(APK)는 Dart 기본 UA가 차단**된다. 그래서 웹에서 테스트하면 멀쩡해 보여도 폰에서 검색이 안 될 수 있음 → 반드시 **APK로 검색을 테스트**할 것.
-- **초당 1회 제한**: 키 입력마다 호출 금지 → 검색은 디바운스(현재 ~600ms).
-- **응답 형태**(파서 주의): 배열이며 `lat`/`lon`은 **문자열**(double 파싱), 필드명은 `lng`가 아니라 **`lon`**, 이름은 `display_name`.
-- 엔드포인트: `https://nominatim.openstreetmap.org/search?q=...&format=json&limit=5`
-- 대량/상용으로 커지면: 무료 정책 한계를 넘으니 자체 Nominatim 호스팅 또는 유료 지오코딩(Google/Mapbox) 키로 전환.
-
-## 참고
-
-- CORS: 백엔드가 `https://test-todo-app-f4c9a.web.app` 오리진을 이미 허용(프리플라이트 통과).
-- 배포 자동화(CI) 없음 — 위 명령을 수동 실행한다.
-- `iOS`는 미설정(App Distribution엔 안드로이드 앱만 등록됨).
-- 지도 타일: OSM 공개 타일 서버 사용(`flutter_map` + `TileLayer.userAgentPackageName` 설정). 대량이면 유료 타일 제공자로.
+Android 릴리스는 HTTPS API URL과 서명 설정이 없으면 실패한다. 빌드 성공만으로 지도 키 제한이나 운영 API 연결을 검증할 수 없으므로 실제 APK 확인이 필요하다.

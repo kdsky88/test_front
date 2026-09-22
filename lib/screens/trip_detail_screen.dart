@@ -13,9 +13,9 @@ import '../models/trip.dart';
 import '../services/map_links.dart';
 import '../services/places_api.dart';
 import '../services/todo_api.dart';
-import '../services/trip_api.dart';
 import '../services/weather_api.dart';
 import '../state/todo_notifier.dart';
+import '../state/trip_detail_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
 import '../widgets/offline_banner.dart';
@@ -42,10 +42,12 @@ class TripDetailScreen extends StatefulWidget {
 }
 
 class _TripDetailScreenState extends State<TripDetailScreen> {
-  List<Todo>? _todos;
-  bool _loading = true;
-  bool _offline = false; // 캐시로 표시 중(네트워크 실패)
-  String? _error;
+  late final TripDetailNotifier _detail;
+  List<Todo>? get _todos => _detail.todos;
+  set _todos(List<Todo>? value) => _detail.todos = value;
+  bool get _loading => _detail.loading;
+  bool get _offline => _detail.offline;
+  String? get _error => _detail.error;
 
   // 즉흥 추천("아무거나") — 목적지 추천을 타입별 캐시.
   final _rng = Random();
@@ -57,6 +59,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _detail = TripDetailNotifier(widget.trip.id)..addListener(_onDetailChanged);
     _load();
     _loadWeather();
   }
@@ -77,42 +80,16 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final todos = await TripApi.getTripTodos(widget.trip.id);
-      if (!mounted) return;
-      setState(() {
-        _todos = todos;
-        _loading = false;
-        _offline = false;
-      });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.error.message;
-        _loading = false;
-      });
-    } catch (_) {
-      // 네트워크 실패: 캐시된 일정이 있으면 오프라인 모드로 보여준다.
-      final cached = await TripApi.cachedTripTodos(widget.trip.id);
-      if (!mounted) return;
-      if (cached.isNotEmpty) {
-        setState(() {
-          _todos = cached;
-          _loading = false;
-          _offline = true;
-        });
-      } else {
-        setState(() {
-          _error = '서버에 연결할 수 없습니다.';
-          _loading = false;
-        });
-      }
-    }
+  void _onDetailChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _load() => _detail.load();
+
+  @override
+  void dispose() {
+    _detail.dispose();
+    super.dispose();
   }
 
   Future<void> _addItem() async {

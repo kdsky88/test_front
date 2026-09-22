@@ -35,8 +35,8 @@ class TodoApp extends StatefulWidget {
 }
 
 class _TodoAppState extends State<TodoApp> {
-  final _todoNotifier = TodoNotifier();
-  final _calendarNotifier = CalendarNotifier();
+  var _todoNotifier = TodoNotifier();
+  var _calendarNotifier = CalendarNotifier();
   int _selectedTab = 0;
   bool _isAuthenticated = AuthSession.isAuthenticated;
   bool _showSplash = true; // 시작 시 스플래시 애니메이션
@@ -48,31 +48,26 @@ class _TodoAppState extends State<TodoApp> {
   @override
   void initState() {
     super.initState();
-    // After a change in one view is persisted, immediately refresh the other
-    // (silently) so it's already up to date regardless of when — or how fast —
-    // the user switches tabs. The tab-switch refresh below is a backup.
-    _todoNotifier.onMutated = () {
-      _calendarNotifier.loadCalendar(silent: true);
-      NotificationService.sync(); // 마감 알림 재예약
-    };
-    _calendarNotifier.onMutated = () {
-      _todoNotifier.loadTodos(silent: true);
-      NotificationService.sync();
-    };
-    // refresh까지 실패(장기 미사용 등)하면 로그인 화면으로 복귀.
+    _wireNotifiers();
     AuthSession.onExpired = () {
-      if (mounted && _isAuthenticated) {
-        setState(() {
-          _isAuthenticated = false;
-          _selectedTab = 0;
-        });
-      }
+      if (mounted && _isAuthenticated) _logout();
     };
     // 이미 로그인 상태(토큰 복원)면 알림 예약
     if (_isAuthenticated) {
       NotificationService.sync();
       syncNearbyGeofences(); // 근처 알림 지오펜스 갱신(옵트인 꺼져있으면 내부에서 해제)
     }
+  }
+
+  void _wireNotifiers() {
+    _todoNotifier.onMutated = () {
+      _calendarNotifier.loadCalendar(silent: true);
+      NotificationService.sync();
+    };
+    _calendarNotifier.onMutated = () {
+      _todoNotifier.loadTodos(silent: true);
+      NotificationService.sync();
+    };
   }
 
   void _onTabSelected(int index) {
@@ -98,6 +93,12 @@ class _TodoAppState extends State<TodoApp> {
   void _logout() {
     AuthSession.clear();
     NotificationService.cancelAll();
+    clearGeofences();
+    _todoNotifier.dispose();
+    _calendarNotifier.dispose();
+    _todoNotifier = TodoNotifier();
+    _calendarNotifier = CalendarNotifier();
+    _wireNotifiers();
     setState(() {
       _isAuthenticated = false;
       _selectedTab = 0;
@@ -114,6 +115,7 @@ class _TodoAppState extends State<TodoApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      key: ValueKey(AuthSession.generation),
       title: 'P의 여행 플래너',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.build(Brightness.light),
@@ -141,13 +143,13 @@ class _TodoAppState extends State<TodoApp> {
                 },
               )
             : _showSplash
-                ? SplashScreen(
-                    key: const ValueKey('splash'),
-                    onDone: () {
-                      if (mounted) setState(() => _showSplash = false);
-                    },
-                  )
-                : KeyedSubtree(key: const ValueKey('home'), child: _home()),
+            ? SplashScreen(
+                key: const ValueKey('splash'),
+                onDone: () {
+                  if (mounted) setState(() => _showSplash = false);
+                },
+              )
+            : KeyedSubtree(key: const ValueKey('home'), child: _home()),
       ),
     );
   }
@@ -175,10 +177,7 @@ class _TodoAppState extends State<TodoApp> {
             calendarNotifier: _calendarNotifier,
             todoNotifier: _todoNotifier,
           ),
-          MoreScreen(
-            notifier: _todoNotifier,
-            onLogout: _logout,
-          ),
+          MoreScreen(notifier: _todoNotifier, onLogout: _logout),
         ],
       ),
       bottomNavigationBar: _BottomNav(
@@ -231,7 +230,9 @@ class _BottomNav extends StatelessWidget {
     final sel = i == selected;
     // 배경 블럭 없이 선택/비선택 대비를 크게: 선택=코럴+채운 아이콘(살짝 큼)+굵은 라벨,
     // 비선택=흐린 회색+아웃라인+보통 굵기.
-    final color = sel ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.6);
+    final color = sel
+        ? scheme.primary
+        : scheme.onSurfaceVariant.withValues(alpha: 0.6);
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => onSelect(i),
@@ -292,6 +293,17 @@ class _AuthScreenState extends State<AuthScreen> {
     } else {
       _rememberEmail = false;
     }
+    // 비밀번호 변경 등으로 세션이 끊겨 여기로 온 경우, 이유를 한 번 알려준다.
+    final notice = AuthSession.notice;
+    if (notice != null) {
+      AuthSession.notice = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(notice)));
+      });
+    }
   }
 
   @override
@@ -323,7 +335,8 @@ class _AuthScreenState extends State<AuthScreen> {
       AuthSession.update(token);
       // 이메일 기억: 로그인 성공 시 체크 상태대로 저장/삭제.
       await LocalAuthPrefs.setRememberedEmail(
-          _rememberEmail ? _emailController.text.trim() : null);
+        _rememberEmail ? _emailController.text.trim() : null,
+      );
       widget.onAuthenticated();
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -351,20 +364,31 @@ class _AuthScreenState extends State<AuthScreen> {
               controller: emailCtrl,
               keyboardType: TextInputType.emailAddress,
               autofocus: true,
-              decoration: const InputDecoration(labelText: '이메일', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: '이메일',
+                border: OutlineInputBorder(),
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, emailCtrl.text.trim()), child: const Text('보내기')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, emailCtrl.text.trim()),
+            child: const Text('보내기'),
+          ),
         ],
       ),
     );
     if (email == null || email.isEmpty || !mounted) return;
     try {
       await AuthApi.forgotPassword(email);
-    } catch (_) {/* 존재 여부 무관하게 동일 안내 */}
+    } catch (_) {
+      /* 존재 여부 무관하게 동일 안내 */
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('메일을 보냈어요. 받은 편지함(스팸함)을 확인하세요.')),
@@ -442,7 +466,8 @@ class _AuthScreenState extends State<AuthScreen> {
                         value: _rememberEmail,
                         onChanged: _isSubmitting
                             ? null
-                            : (v) => setState(() => _rememberEmail = v ?? false),
+                            : (v) =>
+                                  setState(() => _rememberEmail = v ?? false),
                         title: const Text('이메일 기억하기'),
                         controlAffinity: ListTileControlAffinity.leading,
                         contentPadding: EdgeInsets.zero,

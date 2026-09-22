@@ -2,9 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_config.dart';
+import 'offline_cache.dart';
 
 class AuthSession {
+  static int generation = 0;
   static String? accessToken;
+  static Future<TokenResponse> Function(String) refreshRequest =
+      AuthApi.refresh;
   static String? refreshToken;
 
   static const _kAccess = 'auth_access_token';
@@ -12,6 +16,10 @@ class AuthSession {
 
   /// refresh까지 실패(=장기 미사용/무효)했을 때 호출 → 앱이 로그인 화면으로.
   static void Function()? onExpired;
+
+  /// 로그인 화면에서 한 번만 보여줄 안내(예: 비밀번호를 바꿔서 로그아웃된 이유).
+  /// 세션이 끊기면 화면 트리가 통째로 교체돼 원래 화면의 스낵바가 사라지기 때문.
+  static String? notice;
 
   static bool get isAuthenticated => accessToken != null;
 
@@ -24,7 +32,9 @@ class AuthSession {
       final parts = token.split('.');
       if (parts.length != 3) return null;
       final payload =
-          jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))))
+          jsonDecode(
+                utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+              )
               as Map<String, dynamic>;
       return payload['sub'] as String?;
     } catch (_) {
@@ -38,20 +48,28 @@ class AuthSession {
   /// 401 발생 시: 저장된 refresh 토큰으로 새 토큰 발급. 성공 true.
   /// 동시 호출은 같은 요청을 공유. 실패하면 세션을 비움.
   static Future<bool> tryRefresh() {
-    return _refreshInFlight ??= _refreshOnce().whenComplete(() {
-      _refreshInFlight = null;
+    if (_refreshInFlight != null) return _refreshInFlight!;
+    late final Future<bool> pending;
+    pending = _refreshOnce().whenComplete(() {
+      if (identical(_refreshInFlight, pending)) _refreshInFlight = null;
     });
+    return _refreshInFlight = pending;
   }
 
   static Future<bool> _refreshOnce() async {
+    final epoch = generation;
     final rt = refreshToken;
     if (rt == null) return false;
     try {
-      update(await AuthApi.refresh(rt));
-      return true;
+      final token = await refreshRequest(rt);
+      if (epoch != generation) return false;
+      accessToken = token.accessToken;
+      refreshToken = token.refreshToken;
+      await _persist();
+      return epoch == generation;
     } on AuthUnauthorized {
       // refresh 토큰이 실제로 무효/만료 → 진짜 로그아웃
-      clear();
+      if (epoch == generation) clear();
       return false;
     } catch (_) {
       // 네트워크/일시 오류(콜드스타트 등)는 세션을 비우지 않음 → 다음 요청에서 재시도.
@@ -62,37 +80,53 @@ class AuthSession {
 
   /// 앱 시작 시 저장된 토큰을 메모리로 복원 (main()에서 await).
   static Future<void> load() async {
+    await OfflineCache.clearLegacy();
     final prefs = await SharedPreferences.getInstance();
     accessToken = prefs.getString(_kAccess);
     refreshToken = prefs.getString(_kRefresh);
   }
 
   static void update(TokenResponse token) {
+    generation++;
+    _refreshInFlight = null;
     accessToken = token.accessToken;
     refreshToken = token.refreshToken;
     _persist(); // 메모리는 즉시, 저장은 비동기(앱 동작 막지 않음)
   }
 
   static void clear() {
+    final owner = currentEmail;
+    generation++;
+    _refreshInFlight = null;
+    if (owner != null) OfflineCache.clearOwner(owner);
     accessToken = null;
     refreshToken = null;
     _persist();
   }
 
-  static Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
+  static Future<void> _writes = Future.value();
+  static Future<void> _persist() {
     final access = accessToken;
     final refresh = refreshToken;
-    await (access == null
-        ? prefs.remove(_kAccess)
-        : prefs.setString(_kAccess, access));
-    await (refresh == null
-        ? prefs.remove(_kRefresh)
-        : prefs.setString(_kRefresh, refresh));
+    _writes = _writes.catchError((Object _) {}).then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      await (access == null
+          ? prefs.remove(_kAccess)
+          : prefs.setString(_kAccess, access));
+      await (refresh == null
+          ? prefs.remove(_kRefresh)
+          : prefs.setString(_kRefresh, refresh));
+    });
+    return _writes;
   }
 }
 
 class AuthApi {
+  static void clearSessionAfterPasswordChange() {
+    AuthSession.clear();
+    AuthSession.onExpired?.call();
+  }
+
   static Future<TokenResponse> login({
     required String email,
     required String password,
@@ -129,7 +163,11 @@ class AuthApi {
         'newPassword': newPassword,
       }),
     );
-    if (response.statusCode == 204) return;
+    if (response.statusCode == 204) {
+      AuthSession.notice = '비밀번호가 변경됐어요. 새 비밀번호로 다시 로그인해주세요.';
+      clearSessionAfterPasswordChange();
+      return;
+    }
     throw AuthException(_parseErrorMessage(response));
   }
 
@@ -137,29 +175,43 @@ class AuthApi {
   static Future<void> forgotPassword(String email) async {
     await apiClient.post(
       Uri.parse('$apiBaseUrl/api/auth/forgot'),
-      headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: const {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: jsonEncode({'email': email}),
     );
   }
 
   /// 재설정 토큰으로 새 비밀번호 설정. 성공 204.
-  static Future<void> resetPassword({required String token, required String newPassword}) async {
+  static Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
     final response = await apiClient.post(
       Uri.parse('$apiBaseUrl/api/auth/reset'),
-      headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: const {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: jsonEncode({'token': token, 'newPassword': newPassword}),
     );
-    if (response.statusCode == 204) return;
+    if (response.statusCode == 204) {
+      clearSessionAfterPasswordChange();
+      return;
+    }
     throw AuthException(_parseErrorMessage(response));
   }
 
   /// refresh 토큰으로 새 access/refresh 발급. apiClient(자동 refresh 래퍼)가 아닌
   /// 순수 http로 호출해 401→refresh 무한루프를 방지.
   static Future<TokenResponse> refresh(String refreshToken) async {
-    final response = await http.post(
-      Uri.parse('$apiBaseUrl/api/auth/refresh'),
-      headers: {'Authorization': 'Bearer $refreshToken'},
-    );
+    final response = await http
+        .post(
+          Uri.parse('$apiBaseUrl/api/auth/refresh'),
+          headers: {'Authorization': 'Bearer $refreshToken'},
+        )
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode == 200) {
       return TokenResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>,

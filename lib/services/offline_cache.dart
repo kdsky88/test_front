@@ -1,17 +1,38 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 오프라인 폴백용 원본 응답 JSON 캐시(여행 중 데이터 없을 때 읽기).
-/// 모델 toJson 없이 서버 응답 body를 그대로 저장 → 파싱 왕복이 정확.
+/// Cache ownership is captured before an HTTP request, never after its response.
 class OfflineCache {
-  static const _tripsKey = 'cache_trips';
-  static String _todosKey(String tripId) => 'cache_trip_todos_$tripId';
+  static String _prefix(String owner) =>
+      'cache_v2_${Uri.encodeComponent(owner)}_';
+  static Future<void> putTrips(String owner, String body) =>
+      _put('${_prefix(owner)}trips', body);
+  static Future<String?> getTrips(String owner) =>
+      _get('${_prefix(owner)}trips');
+  static Future<void> putTripTodos(String owner, String tripId, String body) =>
+      _put('${_prefix(owner)}todos_$tripId', body);
+  static Future<String?> getTripTodos(String owner, String tripId) =>
+      _get('${_prefix(owner)}todos_$tripId');
 
-  static Future<void> putTrips(String body) => _put(_tripsKey, body);
-  static Future<String?> getTrips() => _get(_tripsKey);
+  static Future<void> clearOwner(String owner) async {
+    final p = await SharedPreferences.getInstance();
+    for (final key
+        in p.getKeys().where((k) => k.startsWith(_prefix(owner))).toList()) {
+      await p.remove(key);
+    }
+  }
 
-  static Future<void> putTripTodos(String tripId, String body) =>
-      _put(_todosKey(tripId), body);
-  static Future<String?> getTripTodos(String tripId) => _get(_todosKey(tripId));
+  static Future<void> clearLegacy() async {
+    final p = await SharedPreferences.getInstance();
+    for (final key
+        in p
+            .getKeys()
+            .where(
+              (k) => k == 'cache_trips' || k.startsWith('cache_trip_todos_'),
+            )
+            .toList()) {
+      await p.remove(key);
+    }
+  }
 
   static Future<void> _put(String key, String value) async {
     final p = await SharedPreferences.getInstance();

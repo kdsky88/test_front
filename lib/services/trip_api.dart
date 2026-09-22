@@ -10,12 +10,16 @@ class TripApi {
   static const String baseUrl = apiBaseUrl;
 
   static Future<List<Trip>> getTrips() async {
+    final owner = AuthSession.currentEmail;
+    final generation = AuthSession.generation;
     final response = await apiClient.get(
       Uri.parse('$baseUrl/trips'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
-      OfflineCache.putTrips(response.body); // 오프라인 폴백용
+      if (owner != null && generation == AuthSession.generation) {
+        await OfflineCache.putTrips(owner, response.body);
+      }
       return _parseTrips(response.body);
     }
     throw _parseError(response);
@@ -23,7 +27,9 @@ class TripApi {
 
   /// 네트워크 실패 시 마지막으로 받은 여행 목록(없으면 빈 리스트).
   static Future<List<Trip>> cachedTrips() async {
-    final body = await OfflineCache.getTrips();
+    final owner = AuthSession.currentEmail;
+    if (owner == null) return const [];
+    final body = await OfflineCache.getTrips(owner);
     return body == null ? const [] : _parseTrips(body);
   }
 
@@ -35,12 +41,16 @@ class TripApi {
   }
 
   static Future<List<Todo>> getTripTodos(String id) async {
+    final owner = AuthSession.currentEmail;
+    final generation = AuthSession.generation;
     final response = await apiClient.get(
       Uri.parse('$baseUrl/trips/$id/todos'),
       headers: _headers,
     );
     if (response.statusCode == 200) {
-      OfflineCache.putTripTodos(id, response.body); // 오프라인 폴백용
+      if (owner != null && generation == AuthSession.generation) {
+        await OfflineCache.putTripTodos(owner, id, response.body);
+      }
       return _parseTodos(response.body);
     }
     throw _parseError(response);
@@ -48,7 +58,9 @@ class TripApi {
 
   /// 네트워크 실패 시 그 여행의 마지막 일정(없으면 빈 리스트).
   static Future<List<Todo>> cachedTripTodos(String id) async {
-    final body = await OfflineCache.getTripTodos(id);
+    final owner = AuthSession.currentEmail;
+    if (owner == null) return const [];
+    final body = await OfflineCache.getTripTodos(owner, id);
     return body == null ? const [] : _parseTodos(body);
   }
 
@@ -66,7 +78,9 @@ class TripApi {
     String? endDate,
   }) async {
     final body = <String, dynamic>{'title': title};
-    if (destination != null && destination.isNotEmpty) body['destination'] = destination;
+    if (destination != null && destination.isNotEmpty) {
+      body['destination'] = destination;
+    }
     if (startDate != null) body['startDate'] = startDate;
     if (endDate != null) body['endDate'] = endDate;
 

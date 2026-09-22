@@ -19,6 +19,19 @@ List<Todo> sortCalendarTodosByPriority(Iterable<Todo> todos) {
 }
 
 class CalendarNotifier extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    onMutated = null;
+    super.dispose();
+  }
+
   late int _year;
   late int _month;
   late DateTime _selectedDate;

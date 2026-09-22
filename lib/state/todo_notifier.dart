@@ -9,6 +9,19 @@ const int kPageLimit = 20;
 enum ListStatus { idle, initialLoading, refreshing, error }
 
 class TodoNotifier extends ChangeNotifier {
+  bool _disposed = false;
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    onMutated = null;
+    super.dispose();
+  }
+
   List<Todo> _todos = [];
   String _filter = 'all';
   String _searchQuery = '';
@@ -55,9 +68,10 @@ class TodoNotifier extends ChangeNotifier {
       );
       list = list
           .where(
-            (t) => !(t.completed &&
-                t.completedAt != null &&
-                t.completedAt!.toLocal().isBefore(cutoff)),
+            (t) =>
+                !(t.completed &&
+                    t.completedAt != null &&
+                    t.completedAt!.toLocal().isBefore(cutoff)),
           )
           .toList();
     }
@@ -73,7 +87,8 @@ class TodoNotifier extends ChangeNotifier {
   }
 
   /// 스코프 필터가 걸려 있으면 서버 total은 필터 전 값이라 맞지 않음 → 화면에서 숨김용.
-  bool get scopeActive => _scopeFilter != 'all' && AuthSession.currentEmail != null;
+  bool get scopeActive =>
+      _scopeFilter != 'all' && AuthSession.currentEmail != null;
   String get scopeFilter => _scopeFilter;
 
   /// 로그인 사용자가 공유를 실제로 쓰고 있는지(현재 페이지 기준). 필터 UI 노출 판단용.
@@ -376,7 +391,10 @@ class TodoNotifier extends ChangeNotifier {
 
   /// 하위 항목 전체를 통째로 서버에 반영하고, 응답 todo로 로컬 목록을 갱신.
   /// 상세 시트가 낙관적 상태를 들고 있으므로 여기선 블로킹하지 않는다(연속 체크 드롭 방지).
-  Future<(Todo?, String?)> updateSubtasks(String id, List<Subtask> subtasks) async {
+  Future<(Todo?, String?)> updateSubtasks(
+    String id,
+    List<Subtask> subtasks,
+  ) async {
     try {
       final updated = await TodoApi.updateTodo(id: id, subtasks: subtasks);
       final j = _todos.indexWhere((t) => t.id == id);
