@@ -774,6 +774,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         _ => BitmapDescriptor.hueAzure,
       };
 
+  // 목록에서도 어느 핀인지 알아보게, 위 hue와 같은 색을 목록 아이콘에 쓴다
+  // (구글 기본 마커 = HSV(hue,1,1)).
+  static Color _slotColor(String slot) =>
+      HSVColor.fromAHSV(1, _slotHue(slot), 1, 1).toColor();
+
   void _showCourse(List<(String, Place)> initial) {
     if (initial.isEmpty) return;
     var stops = initial;
@@ -852,6 +857,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Row(
                           children: [
+                            Icon(Icons.place, size: 18, color: _slotColor(slot)),
+                            const SizedBox(width: 6),
                             Container(
                               width: 46,
                               padding: const EdgeInsets.symmetric(vertical: 4),
