@@ -19,7 +19,7 @@ import '../state/trip_detail_notifier.dart';
 import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
 import '../widgets/offline_banner.dart';
-import '../widgets/cover_image.dart';
+import '../widgets/travel_card.dart';
 import '../widgets/course_save_dialog.dart';
 import '../widgets/recommendation_action.dart';
 import '../services/day_course.dart';
@@ -466,34 +466,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       final e = t.endDate == null ? '?' : _dateFmt.format(t.endDate!);
       return t.startDate != null && t.endDate == null ? s : '$s ~ $e';
     }();
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-      child: ClipRRect(borderRadius: BorderRadius.circular(AppTheme.radius),
-        child: Stack(children: [
-          Positioned.fill(child: CoverImage(destination: t.destination, fallback: cover)),
-          Padding(padding: const EdgeInsets.all(24), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Icon(Icons.explore_outlined, color: Colors.white, size: 24),
-                const SizedBox(width: 12),
-                if (dday != null) Flexible(child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-                  child: Text(dday, style: const TextStyle(color: Color(0xFF294A3E), fontWeight: FontWeight.w700, fontSize: 12)))),
-              ]),
-              const SizedBox(height: 32),
-              Text(t.destination?.isNotEmpty == true ? t.destination! : t.title,
-                style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white)),
-              const SizedBox(height: 10),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.calendar_today_outlined, size: 16, color: Colors.white)),
-                const SizedBox(width: 8),
-                Expanded(child: Text(range, style: const TextStyle(color: Colors.white, height: 1.5))),
-              ]),
-            ],
-          )),
-        ]),
+      child: TravelCard(
+        title: t.title,
+        destination: t.destination?.isNotEmpty == true ? t.destination! : t.title,
+        imageDestination: t.destination ?? '',
+        dateLabel: range,
+        status: dday,
+        cover: cover,
       ),
     );
   }

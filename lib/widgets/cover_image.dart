@@ -1,38 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../models/destination_cover.dart';
 
-/// 지명 키워드로 고르는 커버 이모지. 맞으면 분위기가 살고, 못 맞혀도 기본 ✈️면 무난하다.
-/// 더 구체적인 지명이 먼저 와야 한다(예: '부산'이 '해변'보다 앞). 반대로 '산' 같은
-/// 한 글자 키는 두지 않는다 — 부산·울산·군산까지 산으로 잡아버린다.
-const _emojiByKeyword = <String, String>{
-  '제주': '🏝️', '하와이': '🏝️', '발리': '🏝️', '오키나와': '🏝️', '푸켓': '🏝️',
-  '세부': '🏝️', '보라카이': '🏝️', '몰디브': '🏝️', '괌': '🏝️', '사이판': '🏝️',
-  '부산': '🌊', '강릉': '🌊', '속초': '🌊', '여수': '🌊', '포항': '🌊',
-  '해운대': '🌊', '해변': '🌊', '바다': '🌊', 'beach': '🌊',
-  '삿포로': '❄️', '홋카이도': '❄️', '스키': '❄️', '눈꽃': '❄️',
-  '설악': '🏔️', '한라': '🏔️', '지리산': '🏔️', '알프스': '🏔️', '스위스': '🏔️',
-  '네팔': '🏔️', '융프라우': '🏔️',
-  '온천': '♨️', '벳푸': '♨️', '하코네': '♨️', '유후인': '♨️',
-  '교토': '⛩️', '나라': '⛩️', '닛코': '⛩️',
-  '경주': '🏯', '전주': '🏯', '안동': '🏯',
-  '도쿄': '🏙️', '서울': '🏙️', '오사카': '🏙️', '뉴욕': '🏙️', '홍콩': '🏙️',
-  '상하이': '🏙️', '싱가포르': '🏙️', '후쿠오카': '🏙️', '타이베이': '🏙️',
-  '파리': '🗼', '런던': '🎡', '로마': '🏛️',
-};
-
-String coverEmoji(String? destination) {
-  final d = destination?.trim().toLowerCase();
-  if (d == null || d.isEmpty) return '✈️';
-  for (final entry in _emojiByKeyword.entries) {
-    if (d.contains(entry.key)) return entry.value;
-  }
-  return '✈️';
-}
-
-/// 커버 배경: 목적지에서 뽑은 색 그라데이션 + 등고선 패턴 + 큰 이모지.
-///
-/// 사진(위키)은 쓰지 않는다 — 카드 영역이 작아 큰 사진이 잘려 들어가면 어디인지
-/// 알아보기 어려웠다. 대신 지명으로 색·이모지를 결정해 항상 또렷하게 보이고,
-/// 네트워크도 타지 않는다. Stack 안 Positioned.fill로 쓴다.
+/// Bundled, reviewed photos only. Unknown destinations keep the local gradient.
+/// Photos use contain so landmarks are never cropped by a narrow card.
 class CoverImage extends StatelessWidget {
   const CoverImage({
     super.key,
@@ -76,6 +47,7 @@ class CoverImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final photo = DestinationCover.find(destination);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -89,33 +61,86 @@ class CoverImage extends StatelessWidget {
           ),
           child: CustomPaint(painter: _Contours()),
         ),
-        // 카드든 히어로든 비슷한 비중으로 보이게 높이에 맞춰 키운다.
-        LayoutBuilder(
-          builder: (context, c) => Align(
-            alignment: const Alignment(.82, -.25),
-            child: Opacity(
-              opacity: .9,
-              child: Text(
-                coverEmoji(destination),
-                style: TextStyle(
-                  fontSize: (c.maxHeight * .42).clamp(40.0, 104.0),
-                  height: 1,
-                ),
+        if (photo != null) ...[
+          Image.asset(
+            photo.asset,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            semanticLabel: '${photo.name} · ${photo.landmark}',
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          ),
+          Positioned(
+            right: 8,
+            bottom: 8,
+            child: IconButton.filled(
+              tooltip: '사진 출처',
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xEFFFFFFF),
+                foregroundColor: const Color(0xFF233A32),
+                minimumSize: const Size(48, 48),
               ),
+              icon: const Icon(Icons.info_outline, size: 20),
+              onPressed: () => _showCredit(context, photo),
             ),
           ),
-        ),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x16000000), Color(0x880D241C)],
-            ),
-          ),
-        ),
+        ],
       ],
     );
+  }
+
+  void _showCredit(BuildContext context, DestinationCover photo) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${photo.name} 커버 사진'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(photo.landmark),
+              const SizedBox(height: 12),
+              SelectableText(
+                '파일: ${photo.file}\n저작자: ${photo.author}\n라이선스: ${photo.license}',
+              ),
+              const SizedBox(height: 8),
+              const Text('Wikimedia Commons 제공 · 크기 축소, 구도 변경 없음'),
+              TextButton(
+                onPressed: () => _open(context, photo.source),
+                child: const Text('원본 및 저작자 보기'),
+              ),
+              TextButton(
+                onPressed: () => _open(context, photo.licenseUrl),
+                child: const Text('라이선스 보기'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext context, String url) async {
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      /* Keep credit details available when the browser is unavailable. */
+    }
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('링크를 열 수 없습니다. 잠시 후 다시 시도해 주세요.')),
+      );
+    }
   }
 }
 

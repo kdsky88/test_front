@@ -2,7 +2,7 @@ name: test_front
 description: "Todo List management app."
 publish_to: 'none'
 
-version: 1.52.0+94
+version: 1.53.0+95
 
 environment:
   sdk: ^3.12.1
@@ -35,6 +35,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/covers/
 
 # 앱 아이콘: 코럴 배경 + 흰 종이비행기(스플래시와 통일).
 flutter_launcher_icons:

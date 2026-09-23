@@ -81,6 +81,13 @@ Widget app(
 
 Future<void> capture(WidgetTester tester, String name) async {
   if (captureDir.isEmpty) return;
+  // Asset decoding completes outside the test clock; wait before screenshots.
+  await tester.runAsync(() async {
+    for (final element in find.byType(Image).evaluate()) {
+      await precacheImage((element.widget as Image).image, element);
+    }
+  });
+  await tester.pump();
   await tester.runAsync(() async {
     final boundary =
         captureKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
