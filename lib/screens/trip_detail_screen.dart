@@ -767,15 +767,32 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       buildDayCourse(attractions, foods,
           distance: Geolocator.distanceBetween, rng: _rng);
 
+  // 슬롯별 핀 색: 아침=하늘, 점심=주황, 저녁=보라.
+  static double _slotHue(String slot) => switch (slot) {
+        '점심' => BitmapDescriptor.hueOrange,
+        '저녁' => BitmapDescriptor.hueViolet,
+        _ => BitmapDescriptor.hueAzure,
+      };
+
   void _showCourse(List<(String, Place)> initial) {
+    if (initial.isEmpty) return;
     var stops = initial;
+    GoogleMapController? courseMap;
+    List<LatLng> pointsOf(List<(String, Place)> list) =>
+        [for (final (_, p) in list) LatLng(p.latitude, p.longitude)];
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true, // 지도 + 6곳이라 기본 높이로는 모자람
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
           final theme = Theme.of(ctx);
+          final points = pointsOf(stops);
           return SafeArea(
+            child: ConstrainedBox(
+              constraints:
+                  BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
+              child: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               child: Column(
@@ -784,6 +801,47 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 children: [
                   Text('🗺️ 하루 코스',
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  // 동선 미리보기: 순서대로 선으로 잇고 슬롯 색 핀. 팬/줌은 시트 스크롤과
+                  // 충돌하니 끈다(핀 탭하면 장소 이름이 뜸).
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      height: 180,
+                      child: GoogleMap(
+                        initialCameraPosition: CameraPosition(target: points.first, zoom: 14),
+                        markers: {
+                          for (var i = 0; i < stops.length; i++)
+                            Marker(
+                              markerId: MarkerId('course$i'),
+                              position: points[i],
+                              icon: BitmapDescriptor.defaultMarkerWithHue(_slotHue(stops[i].$1)),
+                              infoWindow:
+                                  InfoWindow(title: stops[i].$2.name, snippet: stops[i].$1),
+                            ),
+                        },
+                        polylines: {
+                          Polyline(
+                            polylineId: const PolylineId('course'),
+                            color: theme.colorScheme.primary,
+                            width: 4,
+                            points: points,
+                          ),
+                        },
+                        onMapCreated: (c) {
+                          courseMap = c;
+                          _fitBounds(c, points);
+                        },
+                        zoomGesturesEnabled: false,
+                        scrollGesturesEnabled: false,
+                        rotateGesturesEnabled: false,
+                        tiltGesturesEnabled: false,
+                        zoomControlsEnabled: false,
+                        myLocationButtonEnabled: false,
+                        mapToolbarEnabled: false,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   for (final (slot, p) in stops)
                     InkWell(
@@ -839,6 +897,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                                 _recoCache['attraction'] ?? const [],
                                 _recoCache['food'] ?? const [],
                               ));
+                          final c = courseMap;
+                          if (c != null) _fitBounds(c, pointsOf(stops));
                         },
                         icon: const Icon(Icons.refresh),
                         label: const Text('다시'),
@@ -846,6 +906,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     ],
                   ),
                 ],
+              ),
+            ),
               ),
             ),
           );
@@ -863,18 +925,22 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     Navigator.of(context).pop(); // 시트 닫기
     int hourFor(String slot) => switch (slot) {
           '점심' => 12,
-          '오후' => 15,
           '저녁' => 19,
-          _ => 9, // 오전
+          _ => 9, // 아침
         };
+    // 같은 슬롯이 2곳이라 두 번째는 +1시간(타임라인에서 겹치지 않게).
+    int hourAt(int i) {
+      final slot = stops[i].$1;
+      return hourFor(slot) + stops.take(i).where((s) => s.$1 == slot).length;
+    }
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => CourseSaveDialog(
         names: stops.map((stop) => stop.$2.name).toList(),
         save: (index) {
-          final (slot, place) = stops[index];
-          final at = DateTime(day.year, day.month, day.day, hourFor(slot));
+          final place = stops[index].$2;
+          final at = DateTime(day.year, day.month, day.day, hourAt(index));
           return widget.notifier.createTodo(
             title: place.name,
             priority: TodoPriority.medium,
@@ -996,7 +1062,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   zoom: 12,
                 ),
                 markers: markers,
-                onMapCreated: (controller) => _fitBounds(controller, located),
+                onMapCreated: (controller) => _fitBounds(controller,
+                    [for (final t in located) LatLng(t.latitude!, t.longitude!)]),
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 mapToolbarEnabled: false,
@@ -1027,15 +1094,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   // 핀이 여러 개면 다 보이게 카메라 맞춤(지도 레이아웃 후 호출).
-  void _fitBounds(GoogleMapController controller, List<Todo> located) {
-    if (located.length < 2) return;
-    var minLat = located.first.latitude!, maxLat = minLat;
-    var minLng = located.first.longitude!, maxLng = minLng;
-    for (final t in located) {
-      minLat = t.latitude! < minLat ? t.latitude! : minLat;
-      maxLat = t.latitude! > maxLat ? t.latitude! : maxLat;
-      minLng = t.longitude! < minLng ? t.longitude! : minLng;
-      maxLng = t.longitude! > maxLng ? t.longitude! : maxLng;
+  void _fitBounds(GoogleMapController controller, List<LatLng> points) {
+    if (points.length < 2) return;
+    var minLat = points.first.latitude, maxLat = minLat;
+    var minLng = points.first.longitude, maxLng = minLng;
+    for (final p in points) {
+      minLat = p.latitude < minLat ? p.latitude : minLat;
+      maxLat = p.latitude > maxLat ? p.latitude : maxLat;
+      minLng = p.longitude < minLng ? p.longitude : minLng;
+      maxLng = p.longitude > maxLng ? p.longitude : maxLng;
     }
     final bounds = LatLngBounds(
       southwest: LatLng(minLat, minLng),
