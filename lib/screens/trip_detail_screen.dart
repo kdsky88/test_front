@@ -802,12 +802,12 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   Text('🗺️ 하루 코스',
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  // 동선 미리보기: 순서대로 선으로 잇고 슬롯 색 핀. 팬/줌은 시트 스크롤과
-                  // 충돌하니 끈다(핀 탭하면 장소 이름이 뜸).
+                  // 동선 미리보기: 순서대로 선으로 잇고 슬롯 색 핀(탭하면 장소 이름).
+                  // 확대·이동 가능 — EagerGestureRecognizer로 시트 스크롤에 안 먹히게.
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: SizedBox(
-                      height: 180,
+                      height: 260,
                       child: GoogleMap(
                         initialCameraPosition: CameraPosition(target: points.first, zoom: 14),
                         markers: {
@@ -832,13 +832,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                           courseMap = c;
                           _fitBounds(c, points);
                         },
-                        zoomGesturesEnabled: false,
-                        scrollGesturesEnabled: false,
                         rotateGesturesEnabled: false,
                         tiltGesturesEnabled: false,
-                        zoomControlsEnabled: false,
+                        zoomControlsEnabled: true,
                         myLocationButtonEnabled: false,
                         mapToolbarEnabled: false,
+                        gestureRecognizers: {
+                          Factory<OneSequenceGestureRecognizer>(
+                              () => EagerGestureRecognizer()),
+                        },
                       ),
                     ),
                   ),
