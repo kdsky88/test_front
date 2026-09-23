@@ -36,12 +36,17 @@ List<(String, Place)> buildDayCourse(
     if (p != null && used.add(key(p))) stops.add((slot, p));
   }
 
-  // 아침=관광지, 점심·저녁=맛집. 후보가 모자라면 그 슬롯은 그냥 비는다(add가 null 무시).
+  // 한쪽이 모자라면 다른 쪽에서 채운다. 목적지가 특정 장소면(예: '삿포로 TV 타워')
+  // 관광지가 한두 곳밖에 안 잡혀 슬롯이 비던 걸 막는다.
+  Place? pick(List<Place> first, List<Place> second) =>
+      pickNear(first) ?? pickNear(second);
+
+  // 아침=관광지, 점심·저녁=맛집.
   add('아침', anchor);
-  add('아침', pickNear(nearA));
-  add('점심', pickNear(nearF));
-  add('점심', pickNear(nearF));
-  add('저녁', pickNear(nearF));
-  add('저녁', pickNear(nearF));
+  add('아침', pick(nearA, nearF));
+  add('점심', pick(nearF, nearA));
+  add('점심', pick(nearF, nearA));
+  add('저녁', pick(nearF, nearA));
+  add('저녁', pick(nearF, nearA));
   return stops;
 }

@@ -42,8 +42,29 @@ void main() {
     );
   });
 
-  test('맛집이 2곳뿐이면 채울 수 있는 만큼만(중복 없이)', () {
-    final attractions = List.generate(4, (i) => p('A$i', i.toDouble(), 0));
+  // 목적지가 특정 장소라 관광지가 1곳뿐이어도 6칸을 맛집으로 채운다(회귀 방어).
+  test('관광지가 1곳뿐이어도 슬롯은 다른 카테고리로 채운다', () {
+    final foods = List.generate(8, (i) => p('F$i', i.toDouble(), 1));
+    final course = buildDayCourse(
+      [p('A0', 0, 0)],
+      foods,
+      distance: sqDist,
+      rng: Random(5),
+    );
+    expect(course.length, 6);
+    expect(course.map((e) => e.$1).toList(), [
+      '아침',
+      '아침',
+      '점심',
+      '점심',
+      '저녁',
+      '저녁',
+    ]);
+    expect(course.map((e) => e.$2.name).toSet().length, 6);
+  });
+
+  test('전체가 4곳뿐이면 있는 만큼만(중복 없이)', () {
+    final attractions = List.generate(2, (i) => p('A$i', i.toDouble(), 0));
     final foods = List.generate(2, (i) => p('F$i', i.toDouble(), 1));
     final course = buildDayCourse(
       attractions,
@@ -51,8 +72,8 @@ void main() {
       distance: sqDist,
       rng: Random(5),
     );
-    expect(course.map((e) => e.$2.name).toSet().length, course.length);
-    expect(course.where((e) => e.$1 != '아침').length, 2, reason: '맛집은 2곳뿐');
+    expect(course.length, 4);
+    expect(course.map((e) => e.$2.name).toSet().length, 4);
   });
 
   // 회귀 방어: 예전엔 점심/오후/저녁이 최근접 고정이라 '다시'가 매번 같았음.
