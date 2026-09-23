@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:test_front/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const TodoApp());
-    // 시작 스플래시(약 2.75초 후 onDone) 통과 → 로그인 화면.
+    // 첫 실행 안내 통과 → 로그인 화면.
     await tester.pump(const Duration(milliseconds: 2800));
     await tester.pumpAndSettle();
     expect(find.text('로그인'), findsWidgets);

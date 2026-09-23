@@ -4,19 +4,80 @@ import 'package:flutter/material.dart';
 /// 라이트: 크림 배경 + 흰 카드 + 어두운 텍스트. 다크: M3 톤 서피스.
 class AppTheme {
   static const Color seed = Color(0xFFEC6A4C); // 따뜻한 코럴
-  static const Color _cream = Color(0xFFF5F4F2); // 중립 오프화이트 배경
-  static const double radius = 18;
+  static const double radius = 24;
 
   static ThemeData build(Brightness brightness) {
-    final isLight = brightness == Brightness.light;
-    final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
-    final bg = isLight ? _cream : scheme.surface;
-    final card = isLight ? Colors.white : scheme.surfaceContainerHigh;
-
-    return ThemeData(
-      colorScheme: scheme,
-      useMaterial3: true,
-      scaffoldBackgroundColor: bg,
+    final light = brightness == Brightness.light;
+    final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness)
+        .copyWith(
+          primary: light ? const Color(0xFFB84932) : const Color(0xFFFFB5A1),
+          onPrimary: light ? Colors.white : const Color(0xFF5C2013),
+          primaryContainer: light
+              ? const Color(0xFFFCE4DB)
+              : const Color(0xFF653628),
+          onPrimaryContainer: light
+              ? const Color(0xFF76331F)
+              : const Color(0xFFFFDBCF),
+          secondary: light ? const Color(0xFF355E52) : const Color(0xFFA8CCBC),
+          secondaryContainer: light
+              ? const Color(0xFFE5EEE7)
+              : const Color(0xFF2B443B),
+          onSecondaryContainer: light
+              ? const Color(0xFF274B3F)
+              : const Color(0xFFD5EADD),
+          surface: light ? const Color(0xFFFFFDF9) : const Color(0xFF191E1C),
+          onSurface: light ? const Color(0xFF233A32) : const Color(0xFFE5E9E3),
+          onSurfaceVariant: light
+              ? const Color(0xFF68736B)
+              : const Color(0xFFB2BDB5),
+          outlineVariant: light
+              ? const Color(0xFFE4E7DF)
+              : const Color(0xFF39443D),
+        );
+    final bg = light ? const Color(0xFFF6F6F0) : const Color(0xFF131815);
+    final base = ThemeData(useMaterial3: true, colorScheme: scheme);
+    final type = base.textTheme.copyWith(
+      headlineLarge: TextStyle(
+        fontSize: 32,
+        height: 1.25,
+        letterSpacing: -1.0,
+        fontWeight: FontWeight.w800,
+        color: scheme.onSurface,
+      ),
+      headlineSmall: TextStyle(
+        fontSize: 26,
+        height: 1.3,
+        letterSpacing: -0.7,
+        fontWeight: FontWeight.w700,
+        color: scheme.onSurface,
+      ),
+      titleLarge: TextStyle(
+        fontSize: 22,
+        height: 1.3,
+        letterSpacing: -0.5,
+        fontWeight: FontWeight.w700,
+        color: scheme.onSurface,
+      ),
+      titleMedium: TextStyle(
+        fontSize: 17,
+        height: 1.4,
+        letterSpacing: -0.3,
+        fontWeight: FontWeight.w700,
+        color: scheme.onSurface,
+      ),
+      bodyLarge: TextStyle(fontSize: 16, height: 1.55, color: scheme.onSurface),
+      bodyMedium: TextStyle(fontSize: 14, height: 1.5, color: scheme.onSurface),
+      labelLarge: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: scheme.onSurface,
+      ),
+    );
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+    );
+    return base.copyWith(
+      textTheme: type,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
@@ -26,62 +87,131 @@ class AppTheme {
           TargetPlatform.linux: FadeForwardsPageTransitionsBuilder(),
         },
       ),
+      scaffoldBackgroundColor: bg,
       appBarTheme: AppBarTheme(
         backgroundColor: bg,
         foregroundColor: scheme.onSurface,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          color: scheme.onSurface,
-          fontSize: 22,
-          fontWeight: FontWeight.w800,
-        ),
+        titleSpacing: 20,
+        titleTextStyle: type.titleLarge,
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: card,
+        color: scheme.surface,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+        shape: shape.copyWith(side: BorderSide(color: scheme.outlineVariant)),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        extendedTextStyle: type.labelLarge?.copyWith(color: scheme.onPrimary),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: card,
-        indicatorColor: scheme.primaryContainer,
-        elevation: 3,
-        height: 66,
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: scheme.secondaryContainer,
+        elevation: 0,
+        height: 76,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
-                ? scheme.onPrimaryContainer
+                ? scheme.onSecondaryContainer
+                : scheme.onSurfaceVariant,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+            color: states.contains(WidgetState.selected)
+                ? scheme.onSurface
                 : scheme.onSurfaceVariant,
           ),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: type.labelLarge,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          minimumSize: const Size(0, 48),
+          foregroundColor: scheme.onSurface,
+          side: BorderSide(color: scheme.outlineVariant),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          textStyle: type.labelLarge,
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: light ? Colors.white : scheme.surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
       ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: shape,
+        titleTextStyle: type.titleLarge,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        dragHandleColor: scheme.outlineVariant,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withValues(alpha: 0.5),
+        color: scheme.outlineVariant,
         thickness: 1,
+        space: 1,
+      ),
+      expansionTileTheme: ExpansionTileThemeData(
+        shape: const Border(),
+        collapsedShape: const Border(),
+        textColor: scheme.onSurface,
+        iconColor: scheme.onSurfaceVariant,
       ),
     );
   }
@@ -106,7 +236,15 @@ class AppTheme {
   }
 
   // 목적지/제목 첫 글자를 커버 이모지 대용으로. (이모지 라이브러리 없이 기본 아이콘 매핑)
-  static const List<String> _emojis = ['🏖️', '🏔️', '🏙️', '🗺️', '🎒', '✈️', '🌅'];
+  static const List<String> _emojis = [
+    '🏖️',
+    '🏔️',
+    '🏙️',
+    '🗺️',
+    '🎒',
+    '✈️',
+    '🌅',
+  ];
   static String emojiFor(String key) {
     var h = 3;
     for (final c in key.codeUnits) {

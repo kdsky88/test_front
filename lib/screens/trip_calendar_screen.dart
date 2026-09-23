@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/calendar_date_cell.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/place.dart';
@@ -338,7 +339,6 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
 
   Widget _dayCell(BuildContext context, int day) {
     if (day == 0) return const SizedBox(height: 64);
-    final theme = Theme.of(context);
     final date = DateTime(_year, _month, day);
     final enabled = _inRange(date);
     final isSelected = _selectedDate.year == _year &&
@@ -347,80 +347,13 @@ class _TripCalendarScreenState extends State<TripCalendarScreen> {
     final now = DateTime.now();
     final isToday = now.year == _year && now.month == _month && now.day == day;
 
-    Color? dayColor;
-    if (!enabled) {
-      dayColor = theme.colorScheme.onSurface.withValues(alpha: 0.4); // disabled: 어두운 배경 위 취소선
-    } else if (isSelected) {
-      dayColor = Colors.white;
-    } else if (isToday) {
-      dayColor = theme.colorScheme.primary;
-    } else if (date.weekday == DateTime.sunday) {
-      dayColor = _sundayColor;
-    } else if (date.weekday == DateTime.saturday) {
-      dayColor = _saturdayColor;
-    }
-
-    final dayItems = _itemsOn(date);
-    return GestureDetector(
-      onTap: enabled
-          ? () {
-              HapticFeedback.mediumImpact();
-              setState(() => _selectedDate = date);
-            }
-          : null,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 64,
-        decoration: enabled
-            ? null
-            : BoxDecoration(color: theme.colorScheme.onSurface.withValues(alpha: 0.12)),
-        child: Column(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: isSelected && enabled ? theme.colorScheme.primary : null,
-                shape: BoxShape.circle,
-                border: isToday && enabled && !isSelected
-                    ? Border.all(color: theme.colorScheme.primary, width: 1.5)
-                    : null,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '$day',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isToday || isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: dayColor,
-                  decoration: enabled ? null : TextDecoration.lineThrough,
-                  decorationColor: dayColor,
-                ),
-              ),
-            ),
-            const SizedBox(height: 2),
-            // 일정 막대(최대 2개, 나머지는 +N) — 달력탭 느낌.
-            if (enabled)
-              for (int i = 0; i < dayItems.length && i < 2; i++)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    dayItems[i].title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 9, color: theme.colorScheme.onPrimaryContainer),
-                  ),
-                ),
-            // 나머지 항목은 아래 선택일 목록에서 확인(셀 오버플로우 방지).
-          ],
-        ),
-      ),
+    return CalendarDateCell(
+      date: date, count: _itemsOn(date).length,
+      selected: isSelected, enabled: enabled, today: isToday,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedDate = date);
+      },
     );
   }
 

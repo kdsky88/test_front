@@ -11,6 +11,7 @@ import 'screens/reset_password_screen.dart';
 import 'state/todo_notifier.dart';
 import 'state/calendar_notifier.dart';
 import 'services/api_config.dart';
+import 'services/startup_prefs.dart';
 import 'services/auth_api.dart';
 import 'services/local_auth_prefs.dart';
 import 'services/notification_prefs.dart';
@@ -20,6 +21,7 @@ import 'services/geofence_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   warmBackend(); // 스플래시 동안 Render 백엔드 콜드스타트 예열(fire-and-forget)
+  await StartupPrefs.load();
   await AuthSession.load(); // 저장된 토큰 복원 후 시작
   await LocalAuthPrefs.load(); // 이메일 기억 + 생체 잠금 설정
   await NotificationPrefs.load(); // 알림 설정(미리 알림·아침 요약)
@@ -39,7 +41,7 @@ class _TodoAppState extends State<TodoApp> {
   var _calendarNotifier = CalendarNotifier();
   int _selectedTab = 0;
   bool _isAuthenticated = AuthSession.isAuthenticated;
-  bool _showSplash = true; // 시작 시 스플래시 애니메이션
+  bool _showSplash = StartupPrefs.showWelcome && !AuthSession.isAuthenticated; // 시작 시 스플래시 애니메이션
   // 로그인 상태 + 생체 잠금 켜짐이면 잠금 화면 게이트.
   bool _locked = AuthSession.isAuthenticated && LocalAuthPrefs.biometricEnabled;
   // 메일 재설정 링크(?reset=토큰)로 열렸으면 재설정 화면.
@@ -146,6 +148,7 @@ class _TodoAppState extends State<TodoApp> {
             ? SplashScreen(
                 key: const ValueKey('splash'),
                 onDone: () {
+                  StartupPrefs.markSeen();
                   if (mounted) setState(() => _showSplash = false);
                 },
               )
@@ -188,81 +191,20 @@ class _TodoAppState extends State<TodoApp> {
   }
 }
 
-/// 하단 탭. M3 NavigationBar는 선택 인디케이터가 아이콘만 감싸므로,
-/// 아이콘+라벨을 통째로 블럭(pill) 처리하려고 직접 만든다.
 class _BottomNav extends StatelessWidget {
   const _BottomNav({required this.selected, required this.onSelect});
-
   final int selected;
   final ValueChanged<int> onSelect;
-
-  static const _items = <(IconData, IconData, String)>[
-    (Icons.luggage_outlined, Icons.luggage, '여행'),
-    (Icons.calendar_month_outlined, Icons.calendar_month, '달력'),
-    (Icons.apps_outlined, Icons.apps, '더보기'),
-  ];
-
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final bg = theme.navigationBarTheme.backgroundColor ?? scheme.surface;
-    return Material(
-      color: bg,
-      elevation: 3,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            children: [
-              for (var i = 0; i < _items.length; i++)
-                Expanded(child: _item(i, scheme)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _item(int i, ColorScheme scheme) {
-    final (outlined, filled, label) = _items[i];
-    final sel = i == selected;
-    // 배경 블럭 없이 선택/비선택 대비를 크게: 선택=코럴+채운 아이콘(살짝 큼)+굵은 라벨,
-    // 비선택=흐린 회색+아웃라인+보통 굵기.
-    final color = sel
-        ? scheme.primary
-        : scheme.onSurfaceVariant.withValues(alpha: 0.6);
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => onSelect(i),
-      child: SizedBox(
-        height: 54,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              scale: sel ? 1.0 : 0.88,
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              child: Icon(sel ? filled : outlined, size: 26, color: color),
-            ),
-            const SizedBox(height: 3),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 180),
-              style: TextStyle(
-                fontSize: 12,
-                height: 1,
-                fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
-                color: color,
-              ),
-              child: Text(label),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => NavigationBar(
+    selectedIndex: selected,
+    onDestinationSelected: onSelect,
+    destinations: const [
+      NavigationDestination(icon: Icon(Icons.luggage_outlined), selectedIcon: Icon(Icons.luggage), label: '여행'),
+      NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: '달력'),
+      NavigationDestination(icon: Icon(Icons.apps_outlined), selectedIcon: Icon(Icons.apps), label: '더보기'),
+    ],
+  );
 }
 
 class AuthScreen extends StatefulWidget {
@@ -411,11 +353,16 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      Icons.flight_takeoff,
-                      size: 56,
-                      color: colorScheme.primary,
-                    ),
+                    Align(alignment: Alignment.centerLeft,
+                      child: Container(padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: colorScheme.secondaryContainer, borderRadius: BorderRadius.circular(22)),
+                        child: Icon(Icons.flight_takeoff_rounded, size: 32, color: colorScheme.onSecondaryContainer))),
+                    const SizedBox(height: 24),
+                    Text(_isRegister ? '첫 여행을 함께 시작해요' : '다시, 여행을 이어가요',
+                      style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 8),
+                    Text('목적지만 정해도 좋아요. 나머지는 천천히.',
+                      style: TextStyle(color: colorScheme.onSurfaceVariant, height: 1.5)),
                     const SizedBox(height: 28),
                     if (_isRegister) ...[
                       TextFormField(

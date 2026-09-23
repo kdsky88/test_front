@@ -30,6 +30,14 @@ class Trip {
     }
   }
 
+  bool isActiveOn(DateTime date) {
+    if (startDate == null) return false;
+    final today = DateTime(date.year, date.month, date.day);
+    final start = DateTime(startDate!.year, startDate!.month, startDate!.day);
+    final end = endDate ?? startDate!;
+    return !today.isBefore(start) && !today.isAfter(DateTime(end.year, end.month, end.day));
+  }
+
   /// 여행 기간 D-day. 시작 전이면 "D-n", 여행 중이면 "여행 중", 끝났으면 "종료", 날짜 없으면 null.
   String? get dDayLabel {
     if (startDate == null) return null;

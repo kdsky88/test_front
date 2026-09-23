@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 
@@ -15,19 +16,35 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 2400));
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  Timer? _timer;
+  bool _started = false;
+  bool _completed = false;
+
+  void _finish() {
+    if (_completed || !mounted) return;
+    _completed = true;
+    _timer?.cancel();
+    widget.onDone();
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _c.forward();
-    Future.delayed(const Duration(milliseconds: 2750), () {
-      if (mounted) widget.onDone();
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _finish());
+    } else {
+      _c.forward();
+      _timer = Timer(const Duration(milliseconds: 1100), _finish);
+    }
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -86,6 +103,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       ),
                     ),
                   ),
+                  Positioned(right: 16, top: MediaQuery.paddingOf(context).top + 12,
+                    child: TextButton(onPressed: _finish,
+                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      child: const Text('바로 시작'))),
                 ],
               );
             },

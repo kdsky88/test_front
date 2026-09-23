@@ -20,6 +20,8 @@ import '../theme.dart';
 import '../widgets/todo_form_dialog.dart';
 import '../widgets/offline_banner.dart';
 import '../widgets/cover_image.dart';
+import '../widgets/course_save_dialog.dart';
+import '../widgets/recommendation_action.dart';
 import '../services/day_course.dart';
 import 'currency_screen.dart';
 import 'expenses_screen.dart';
@@ -32,10 +34,11 @@ final _dayFmt = DateFormat('M/d (E)', 'ko');
 final _timeFmt = DateFormat('HH:mm');
 
 class TripDetailScreen extends StatefulWidget {
-  const TripDetailScreen({super.key, required this.trip, required this.notifier});
+  const TripDetailScreen({super.key, required this.trip, required this.notifier, this.detail});
 
   final Trip trip;
   final TodoNotifier notifier;
+  final TripDetailNotifier? detail;
 
   @override
   State<TripDetailScreen> createState() => _TripDetailScreenState();
@@ -51,6 +54,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   // 즉흥 추천("아무거나") — 목적지 추천을 타입별 캐시.
   final _rng = Random();
+  bool _courseSaving = false;
   final Map<String, List<Place>> _recoCache = {};
 
   // 목적지 날씨(open-meteo). null=미로드/없음.
@@ -59,7 +63,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _detail = TripDetailNotifier(widget.trip.id)..addListener(_onDetailChanged);
+    _detail = (widget.detail ?? TripDetailNotifier(widget.trip.id))..addListener(_onDetailChanged);
     _load();
     _loadWeather();
   }
@@ -92,16 +96,28 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     super.dispose();
   }
 
+  bool _requireConnection() {
+    if (!_offline) return true;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: const Text('오프라인에서는 저장된 일정만 볼 수 있어요.'),
+      action: SnackBarAction(label: '다시 연결', onPressed: _load),
+    ));
+    return false;
+  }
+
   Future<void> _addItem() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => TripCalendarScreen(trip: widget.trip, notifier: widget.notifier),
-      ),
+    if (!_requireConnection()) return;
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => TodoFormDialog(
+        notifier: widget.notifier, lockedTrip: widget.trip,
+        initialDueAt: widget.trip.isActiveOn(DateTime.now()) ? DateTime.now() : widget.trip.startDate,
+      )),
     );
-    _load();
+    if (saved == true && mounted) _load();
   }
 
   Future<void> _editItem(Todo todo) async {
+    if (!_requireConnection()) return;
     final ok = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => TodoFormDialog(
@@ -115,6 +131,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _deleteItem(Todo todo) async {
+    if (!_requireConnection()) return;
     HapticFeedback.mediumImpact();
     // 낙관적: 목록에서 즉시 빼고 스낵바도 바로 띄운다(서버 응답 안 기다림). refetch 안 함.
     setState(() => _todos = (_todos ?? const []).where((t) => t.id != todo.id).toList());
@@ -125,8 +142,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         action: SnackBarAction(
           label: '실행취소',
           onPressed: () async {
-            await widget.notifier.restoreTodo(todo);
-            if (mounted) _load();
+            final error = await widget.notifier.restoreTodo(todo);
+            if (!mounted) return;
+            _load();
+            if (error != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('복원하지 못했어요. $error')),
+              );
+            }
           },
         ),
       ));
@@ -141,6 +164,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   // 방문 체크 = 그 일정 완료 토글(completed 재사용). 낙관적 반영 후 서버 반영.
   Future<void> _toggleVisited(Todo todo) async {
+    if (!_requireConnection()) return;
     HapticFeedback.mediumImpact();
     final want = !todo.completed;
     setState(() {
@@ -264,10 +288,19 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.trip.title),
-        backgroundColor: cover,
-        foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: '날짜별 일정 편집',
+            icon: const Icon(Icons.calendar_month_outlined),
+            onPressed: () async {
+              if (!_requireConnection()) return;
+              await Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => TripCalendarScreen(trip: widget.trip, notifier: widget.notifier),
+              ));
+              if (mounted) _load();
+            },
+          ),
           // 도구(공유·경비·환율)는 계획 화면과 안 섞이게 한 메뉴로 묶음.
           PopupMenuButton<String>(
             tooltip: '여행 도구',
@@ -277,11 +310,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 case 'share':
                   _shareTrip();
                 case 'expenses':
+                  if (!_requireConnection()) return;
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => ExpensesScreen(
                         tripId: widget.trip.id, tripTitle: widget.trip.title),
                   ));
                 case 'currency':
+                  if (!_requireConnection()) return;
                   Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const CurrencyScreen()));
               }
@@ -316,7 +351,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addItem,
+        onPressed: _offline ? null : _addItem,
         icon: const Icon(Icons.add),
         label: const Text('일정 추가'),
       ),
@@ -331,6 +366,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
     if (_error != null) {
       return ListView(children: [
+        if (_offline) OfflineBanner(lastSynced: _detail.lastSynced, onRetry: _load, retrying: _loading),
         _hero(cover),
         const SizedBox(height: 80),
         Center(child: Text(_error!)),
@@ -340,31 +376,55 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
 
     final days = _days;
-    final children = <Widget>[_hero(cover)];
-
-    if (_offline) children.add(const OfflineBanner());
-    // 여행 기록: 방문 진행률(장소가 있을 때).
-    children.add(_recordBar());
-    // 목적지 날씨 스트립(예보 범위 내일 때).
-    children.add(_weatherStrip());
-    // 즉흥/하루 코스 버튼(목적지 있을 때).
-    children.add(_actionButtons());
-
-    // 위치가 있는 일정을 여행 지도에 핀으로.
-    final located = (_todos ?? const [])
-        .where((t) => t.latitude != null && t.longitude != null)
-        .toList();
-    if (located.isNotEmpty) {
-      children.add(Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        child: FilledButton.icon(
-          onPressed: _openPreview,
-          icon: const Icon(Icons.slideshow_outlined),
-          label: const Text('여행 미리보기'),
-        ),
+    final today = DateUtils.dateOnly(DateTime.now());
+    final active = widget.trip.isActiveOn(today);
+    final children = <Widget>[];
+    if (_offline) {
+      children.add(OfflineBanner(
+        lastSynced: _detail.lastSynced, onRetry: _load, retrying: _loading,
       ));
-      children.add(_tripMap(located));
     }
+    if (active) {
+      children.add(_sectionHeader('오늘 일정', _dayFmt.format(today), cover));
+      final todayItems = _itemsOn(today);
+      if (todayItems.isEmpty) {
+        children.add(const Padding(padding: EdgeInsets.all(16),
+          child: Text('오늘은 비어 있어요. 장소를 추천받거나 일정을 직접 추가해보세요.')));
+        children.add(Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: FilledButton.icon(onPressed: _offline ? null : _addItem,
+            icon: const Icon(Icons.add), label: const Text('오늘 일정 추가'))));
+      } else {
+        final next = todayItems.where((t) => !t.completed && t.latitude != null && t.longitude != null).firstOrNull;
+        if (next != null) { children.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: FilledButton.icon(
+            onPressed: _offline ? null : () => openInGoogleMaps(
+              lat: next.latitude!, lng: next.longitude!, directions: true),
+            icon: const Icon(Icons.directions),
+            label: Text('다음 장소 길찾기 · ${next.title}'),
+          ),
+        )); }
+        children.addAll(todayItems.map(_itemCard));
+      }
+    }
+    children.add(_hero(cover));
+    children.add(_actionButtons());
+    final located = _located;
+    children.add(Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Card(child: ExpansionTile(
+      title: const Text('지도 · 날씨 · 여행 기록'),
+      initiallyExpanded: !active,
+      children: [
+        _recordBar(),
+        _weatherStrip(),
+        if (located.isNotEmpty) ...[
+          TextButton.icon(onPressed: _openPreview,
+            icon: const Icon(Icons.slideshow_outlined), label: const Text('여행 미리보기')),
+          _tripMap(located),
+        ],
+      ],
+    ))));
+    if (!active && (_todos ?? const []).isEmpty && days.isNotEmpty) children.add(_emptyState());
 
     if (days.isEmpty) {
       // 기간 미정: 전체 항목을 한 목록으로.
@@ -381,7 +441,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         for (final t in items) {
           matched.add(t.id);
         }
-        children.add(_daySection(i + 1, days[i], items, cover));
+        if (!active || !DateUtils.isSameDay(days[i], today)) {
+          children.add(_daySection(i + 1, days[i], items, cover));
+        }
       }
       // 기간에 안 잡힌 항목(날짜 없음 등)은 '그 외'로.
       final leftovers = (_todos ?? const []).where((t) => !matched.contains(t.id)).toList();
@@ -404,50 +466,35 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       final e = t.endDate == null ? '?' : _dateFmt.format(t.endDate!);
       return t.startDate != null && t.endDate == null ? s : '$s ~ $e';
     }();
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: CoverImage(destination: t.destination, fallback: cover),
-        ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(AppTheme.emojiFor(t.id), style: const TextStyle(fontSize: 44)),
-              const Spacer(),
-              if (dday != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(dday, style: TextStyle(color: cover, fontWeight: FontWeight.bold)),
-                ),
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      child: ClipRRect(borderRadius: BorderRadius.circular(AppTheme.radius),
+        child: Stack(children: [
+          Positioned.fill(child: CoverImage(destination: t.destination, fallback: cover)),
+          Padding(padding: const EdgeInsets.all(24), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Icon(Icons.explore_outlined, color: Colors.white, size: 24),
+                const SizedBox(width: 12),
+                if (dday != null) Flexible(child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+                  child: Text(dday, style: const TextStyle(color: Color(0xFF294A3E), fontWeight: FontWeight.w700, fontSize: 12)))),
+              ]),
+              const SizedBox(height: 32),
+              Text(t.destination?.isNotEmpty == true ? t.destination! : t.title,
+                style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white)),
+              const SizedBox(height: 10),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.calendar_today_outlined, size: 16, color: Colors.white)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(range, style: const TextStyle(color: Colors.white, height: 1.5))),
+              ]),
             ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(Icons.place_outlined, size: 16, color: Colors.white),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  [if (t.destination != null) t.destination!, range].join('  ·  '),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ],
-          ),
-        ),
-      ],
+          )),
+        ]),
+      ),
     );
   }
 
@@ -496,6 +543,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   // 즉흥 추천: 관광지/맛집 중 랜덤 타입 → 랜덤 1곳.
   Future<void> _surprise() async {
+    if (!_requireConnection()) return;
     final dest = widget.trip.destination?.trim();
     if (dest == null || dest.isEmpty) return;
     HapticFeedback.mediumImpact();
@@ -547,7 +595,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('🎲 아무거나',
+                  Text('🎲 장소 추천',
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   Text(current.name,
@@ -660,6 +708,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _addFromSurprise(Place p) async {
+    if (!_requireConnection()) return;
     final day = await _pickTripDay();
     if (day == null || !mounted) return;
     Navigator.of(context).pop(); // 시트 닫기
@@ -681,31 +730,20 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final dest = widget.trip.destination?.trim();
     if (dest == null || dest.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: FilledButton.tonalIcon(
-              onPressed: _surprise,
-              icon: const Icon(Icons.casino_outlined),
-              label: const Text('아무거나'),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: FilledButton.tonalIcon(
-              onPressed: _course,
-              icon: const Icon(Icons.route_outlined),
-              label: const Text('하루 코스'),
-            ),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Expanded(child: RecommendationAction(title: '장소 추천', subtitle: '마음에 드는 한 곳 발견하기',
+          icon: Icons.explore_outlined, onTap: _offline ? null : _surprise)),
+        const SizedBox(width: 12),
+        Expanded(child: RecommendationAction(title: '하루 코스', subtitle: '관광지와 맛집을 한 번에',
+          icon: Icons.route_outlined, primary: true, onTap: _offline ? null : _course)),
+      ])),
     );
   }
 
   // 하루 코스: 관광지/맛집을 anchor 근처로 묶어 시간대별.
   Future<void> _course() async {
+    if (!_requireConnection()) return;
     final dest = widget.trip.destination?.trim();
     if (dest == null || dest.isEmpty) return;
     HapticFeedback.mediumImpact();
@@ -817,6 +855,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _addCourse(List<(String, Place)> stops) async {
+    if (!_requireConnection() || _courseSaving) return;
+    _courseSaving = true;
+    try {
     final day = await _pickTripDay();
     if (day == null || !mounted) return;
     Navigator.of(context).pop(); // 시트 닫기
@@ -826,23 +867,30 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           '저녁' => 19,
           _ => 9, // 오전
         };
-    for (final (slot, p) in stops) {
-      final at = DateTime(day.year, day.month, day.day, hourFor(slot));
-      await widget.notifier.createTodo(
-        title: p.name,
-        priority: TodoPriority.medium,
-        tripId: widget.trip.id,
-        startAt: at.toUtc().toIso8601String(),
-        latitude: p.latitude,
-        longitude: p.longitude,
-        placeName: p.name,
-      );
-    }
-    if (!mounted) return;
-    _load();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('하루 코스 ${stops.length}곳을 일정에 담았어요')),
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CourseSaveDialog(
+        names: stops.map((stop) => stop.$2.name).toList(),
+        save: (index) {
+          final (slot, place) = stops[index];
+          final at = DateTime(day.year, day.month, day.day, hourFor(slot));
+          return widget.notifier.createTodo(
+            title: place.name,
+            priority: TodoPriority.medium,
+            tripId: widget.trip.id,
+            startAt: at.toUtc().toIso8601String(),
+            latitude: place.latitude,
+            longitude: place.longitude,
+            placeName: place.name,
+          );
+        },
+      ),
     );
+    if (mounted) _load();
+    } finally {
+      _courseSaving = false;
+    }
   }
 
   // 목적지 날씨 가로 스트립(여행 기간, 예보 범위 내).
@@ -1032,25 +1080,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Widget _sectionHeader(String badge, String? sub, Color cover) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: cover.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(badge,
-                style: TextStyle(color: cover, fontWeight: FontWeight.bold, fontSize: 13)),
-          ),
-          if (sub != null) ...[
-            const SizedBox(width: 8),
-            Text(sub, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+      child: Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 12, runSpacing: 6, children: [
+        Text(badge, style: theme.textTheme.titleMedium),
+        if (sub != null) Text(sub, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+      ]),
     );
   }
 
@@ -1079,7 +1115,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Dismissible(
         key: ValueKey(todo.id),
-        direction: DismissDirection.endToStart,
+        direction: _offline ? DismissDirection.none : DismissDirection.endToStart,
         background: _swipeDeleteBg(theme),
         // 확인 없이 바로 삭제 → _deleteItem이 즉시 목록에서 제거(트리 일관성 유지) + 실행취소 스낵바.
         onDismissed: (_) => _deleteItem(todo),
@@ -1096,12 +1132,12 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 IconButton(
                   icon: Icon(
                     todo.completed ? Icons.check_circle : Icons.radio_button_unchecked,
-                    color: todo.completed ? Colors.green : theme.colorScheme.outline,
+                    color: todo.completed ? theme.colorScheme.secondary : theme.colorScheme.outline,
                     size: 22,
                   ),
                   tooltip: todo.completed ? '방문 취소' : '방문 체크',
                   visualDensity: VisualDensity.compact,
-                  onPressed: () => _toggleVisited(todo),
+                  onPressed: _offline ? null : () => _toggleVisited(todo),
                 ),
                 // 시간 배지
                 SizedBox(
@@ -1199,13 +1235,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
-            hasDest ? "위 '아무거나'·'하루 코스'로 채우거나 직접 추가해 보세요." : '일정을 추가해 여행을 채워보세요.',
+            hasDest ? "위에서 장소나 하루 코스를 추천받거나 직접 추가해보세요." : '일정을 추가해 여행을 채워보세요.',
             textAlign: TextAlign.center,
             style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: _addItem,
+            onPressed: _offline ? null : _addItem,
             icon: const Icon(Icons.add),
             label: const Text('일정 추가'),
           ),

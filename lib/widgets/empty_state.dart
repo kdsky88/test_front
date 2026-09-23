@@ -8,12 +8,14 @@ class EmptyState extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.action,
+    this.icon,
   });
 
   final String emoji;
   final String title;
   final String? subtitle;
   final Widget? action;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -30,22 +32,42 @@ class EmptyState extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(emoji, style: const TextStyle(fontSize: 52)),
-                    const SizedBox(height: 14),
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(32),
+                      ),
+                      alignment: Alignment.center,
+                      child: icon == null
+                          ? Text(emoji, style: const TextStyle(fontSize: 40))
+                          : Icon(
+                              icon,
+                              size: 40,
+                              color: theme.colorScheme.onSecondaryContainer,
+                            ),
+                    ),
+                    const SizedBox(height: 24),
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.headlineSmall,
                     ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 6),
                       Text(
                         subtitle!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
-                    if (action != null) ...[const SizedBox(height: 18), action!],
+                    if (action != null) ...[
+                      const SizedBox(height: 28),
+                      action!,
+                    ],
                   ],
                 ),
               ),

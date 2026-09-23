@@ -33,6 +33,16 @@ class TripApi {
     return body == null ? const [] : _parseTrips(body);
   }
 
+  static Future<DateTime?> cachedTripsSavedAt() async {
+    final owner = AuthSession.currentEmail;
+    return owner == null ? null : OfflineCache.tripsSavedAt(owner);
+  }
+
+  static Future<DateTime?> cachedTodosSavedAt(String id) async {
+    final owner = AuthSession.currentEmail;
+    return owner == null ? null : OfflineCache.todosSavedAt(owner, id);
+  }
+
   static List<Trip> _parseTrips(String body) {
     final json = jsonDecode(body) as Map<String, dynamic>;
     return (json['data'] as List)

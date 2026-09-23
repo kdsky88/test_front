@@ -15,6 +15,7 @@ class TripDetailNotifier extends ChangeNotifier {
   List<Todo>? todos;
   bool loading = true;
   bool offline = false;
+  DateTime? lastSynced;
   String? error;
   int _sequence = 0;
   bool _disposed = false;
@@ -30,14 +31,21 @@ class TripDetailNotifier extends ChangeNotifier {
       if (_disposed || sequence != _sequence) return;
       todos = result;
       offline = false;
+      lastSynced = DateTime.now();
     } on ApiException catch (e) {
       if (_disposed || sequence != _sequence) return;
       error = e.error.message;
     } catch (_) {
+      if (_disposed || sequence != _sequence) return;
+      offline = true;
       try {
         final result = await _cached(tripId);
         if (_disposed || sequence != _sequence) return;
-        if (result.isEmpty) {
+        DateTime? savedAt;
+        try { savedAt = await TripApi.cachedTodosSavedAt(tripId); } catch (_) {}
+        if (_disposed || sequence != _sequence) return;
+        lastSynced = savedAt;
+        if (result.isEmpty && savedAt == null) {
           error = '서버에 연결할 수 없습니다.';
         } else {
           todos = result;

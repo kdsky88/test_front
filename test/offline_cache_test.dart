@@ -52,4 +52,18 @@ void main() {
     expect(trips.first.title, '부산 여행');
     expect(trips.first.destination, '부산');
   });
+
+  test(
+    'saved timestamp belongs to its account and is removed with cache',
+    () async {
+      await OfflineCache.putTripTodos('a@example.com', 'trip', '{"data":[]}');
+      expect(
+        await OfflineCache.todosSavedAt('a@example.com', 'trip'),
+        isNotNull,
+      );
+      expect(await OfflineCache.todosSavedAt('b@example.com', 'trip'), isNull);
+      await OfflineCache.clearOwner('a@example.com');
+      expect(await OfflineCache.todosSavedAt('a@example.com', 'trip'), isNull);
+    },
+  );
 }

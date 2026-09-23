@@ -13,6 +13,14 @@ class OfflineCache {
   static Future<String?> getTripTodos(String owner, String tripId) =>
       _get('${_prefix(owner)}todos_$tripId');
 
+  static Future<DateTime?> tripsSavedAt(String owner) => _savedAt('${_prefix(owner)}trips');
+  static Future<DateTime?> todosSavedAt(String owner, String tripId) => _savedAt('${_prefix(owner)}todos_$tripId');
+  static Future<DateTime?> _savedAt(String key) async {
+    final p = await SharedPreferences.getInstance();
+    final value = p.getString('${key}_saved_at');
+    return value == null ? null : DateTime.tryParse(value);
+  }
+
   static Future<void> clearOwner(String owner) async {
     final p = await SharedPreferences.getInstance();
     for (final key
@@ -37,6 +45,7 @@ class OfflineCache {
   static Future<void> _put(String key, String value) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(key, value);
+    await p.setString('${key}_saved_at', DateTime.now().toUtc().toIso8601String());
   }
 
   static Future<String?> _get(String key) async {
