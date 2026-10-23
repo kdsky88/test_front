@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../models/todo.dart';
 import '../models/trip.dart';
 import 'api_config.dart';
@@ -14,7 +13,7 @@ class TripApi {
     final generation = AuthSession.generation;
     final response = await apiClient.get(
       Uri.parse('$baseUrl/trips'),
-      headers: _headers,
+      headers: jsonHeaders,
     );
     if (response.statusCode == 200) {
       if (owner != null && generation == AuthSession.generation) {
@@ -22,7 +21,7 @@ class TripApi {
       }
       return _parseTrips(response.body);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   /// 네트워크 실패 시 마지막으로 받은 여행 목록(없으면 빈 리스트).
@@ -55,7 +54,7 @@ class TripApi {
     final generation = AuthSession.generation;
     final response = await apiClient.get(
       Uri.parse('$baseUrl/trips/$id/todos'),
-      headers: _headers,
+      headers: jsonHeaders,
     );
     if (response.statusCode == 200) {
       if (owner != null && generation == AuthSession.generation) {
@@ -63,7 +62,7 @@ class TripApi {
       }
       return _parseTodos(response.body);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   /// 네트워크 실패 시 그 여행의 마지막 일정(없으면 빈 리스트).
@@ -96,14 +95,14 @@ class TripApi {
 
     final response = await apiClient.post(
       Uri.parse('$baseUrl/trips'),
-      headers: _headers,
+      headers: jsonHeaders,
       body: jsonEncode(body),
     );
     if (response.statusCode == 201) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return Trip.fromJson(json['data'] as Map<String, dynamic>);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<Trip> updateTrip(
@@ -122,44 +121,22 @@ class TripApi {
     };
     final response = await apiClient.patch(
       Uri.parse('$baseUrl/trips/$id'),
-      headers: _headers,
+      headers: jsonHeaders,
       body: jsonEncode(body),
     );
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return Trip.fromJson(json['data'] as Map<String, dynamic>);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<void> deleteTrip(String id) async {
     final response = await apiClient.delete(
       Uri.parse('$baseUrl/trips/$id'),
-      headers: _headers,
+      headers: jsonHeaders,
     );
     if (response.statusCode == 204) return;
-    throw _parseError(response);
-  }
-
-  static Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    if (AuthSession.accessToken case final token?)
-      'Authorization': 'Bearer $token',
-  };
-
-  static ApiException _parseError(http.Response response) {
-    try {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return ApiException(
-        statusCode: response.statusCode,
-        error: ApiError.fromJson(json),
-      );
-    } catch (_) {
-      return ApiException(
-        statusCode: response.statusCode,
-        error: ApiError(code: 'INTERNAL_ERROR', message: '서버 응답을 처리할 수 없습니다.'),
-      );
-    }
+    throw parseApiError(response);
   }
 }

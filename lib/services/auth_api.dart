@@ -154,10 +154,7 @@ class AuthApi {
   }) async {
     final response = await apiClient.post(
       Uri.parse('$apiBaseUrl/api/auth/password'),
-      headers: const {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: jsonHeaders,
       body: jsonEncode({
         'currentPassword': currentPassword,
         'newPassword': newPassword,
@@ -175,10 +172,7 @@ class AuthApi {
   static Future<void> forgotPassword(String email) async {
     await apiClient.post(
       Uri.parse('$apiBaseUrl/api/auth/forgot'),
-      headers: const {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: jsonHeaders,
       body: jsonEncode({'email': email}),
     );
   }
@@ -190,10 +184,7 @@ class AuthApi {
   }) async {
     final response = await apiClient.post(
       Uri.parse('$apiBaseUrl/api/auth/reset'),
-      headers: const {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: jsonHeaders,
       body: jsonEncode({'token': token, 'newPassword': newPassword}),
     );
     if (response.statusCode == 204) {
@@ -231,10 +222,7 @@ class AuthApi {
   ) async {
     final response = await apiClient.post(
       Uri.parse('$apiBaseUrl$path'),
-      headers: const {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: jsonHeaders,
       body: jsonEncode(body),
     );
     if (response.statusCode == 200 || response.statusCode == 201) {

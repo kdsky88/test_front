@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:http/retry.dart';
+import '../models/todo.dart'; // ApiException / ApiError
 import 'auth_api.dart';
 
 const String apiBaseUrl = String.fromEnvironment(
@@ -8,6 +10,29 @@ const String apiBaseUrl = String.fromEnvironment(
   // 백엔드(Spring) server.port=8080 에 정렬. dart-define API_BASE_URL 로 오버라이드 가능.
   defaultValue: 'http://localhost:8080',
 );
+
+/// 백엔드 JSON API 공통 헤더. Authorization은 AuthClient가 매 요청(재전송 포함)에 붙인다.
+const Map<String, String> jsonHeaders = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+};
+
+/// 백엔드 에러 응답 `{ "error": { code, message, fields? } }` → ApiException.
+/// 본문이 그 형식이 아니면 INTERNAL_ERROR로.
+ApiException parseApiError(http.Response response) {
+  try {
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return ApiException(
+      statusCode: response.statusCode,
+      error: ApiError.fromJson(json),
+    );
+  } catch (_) {
+    return ApiException(
+      statusCode: response.statusCode,
+      error: const ApiError(code: 'INTERNAL_ERROR', message: '서버 응답을 처리할 수 없습니다.'),
+    );
+  }
+}
 
 /// 백엔드 콜드스타트 완화: 앱 시작 시(스플래시 동안) health를 미리 때려 Render를 깨운다.
 /// fire-and-forget — 실패해도 무시(첫 실제 요청은 apiClient 재시도가 견딤).

@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../models/todo.dart';
 import 'api_config.dart';
-import 'auth_api.dart';
 
 class TodoApi {
   static const String baseUrl = apiBaseUrl;
@@ -10,18 +8,18 @@ class TodoApi {
   static Future<TodoStats> getStats() async {
     final response = await apiClient.get(
       Uri.parse('$baseUrl/todos/stats'),
-      headers: _headers,
+      headers: jsonHeaders,
     );
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return TodoStats.fromJson(json['data'] as Map<String, dynamic>);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<List<String>> getAssignees() async {
     final uri = Uri.parse('$baseUrl/todos/assignees');
-    final response = await apiClient.get(uri, headers: _headers);
+    final response = await apiClient.get(uri, headers: jsonHeaders);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final data = json['data'] as List<dynamic>;
@@ -34,7 +32,7 @@ class TodoApi {
           .where((s) => s.isNotEmpty)
           .toList();
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   /// 완료 기록: 완료 시각(completedAt) 내림차순. 목록 정렬과 별개 전용 엔드포인트라
@@ -46,13 +44,13 @@ class TodoApi {
     final uri = Uri.parse('$baseUrl/todos/completed').replace(
       queryParameters: {'page': '$page', 'limit': '$limit'},
     );
-    final response = await apiClient.get(uri, headers: _headers);
+    final response = await apiClient.get(uri, headers: jsonHeaders);
     if (response.statusCode == 200) {
       return TodoListResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>,
       );
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<TodoListResponse> getTodos({
@@ -78,13 +76,13 @@ class TodoApi {
     final uri = Uri.parse(
       '$baseUrl/todos',
     ).replace(queryParameters: queryParameters);
-    final response = await apiClient.get(uri, headers: _headers);
+    final response = await apiClient.get(uri, headers: jsonHeaders);
     if (response.statusCode == 200) {
       return TodoListResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>,
       );
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<Todo> createTodo({
@@ -126,14 +124,14 @@ class TodoApi {
 
     final response = await apiClient.post(
       Uri.parse('$baseUrl/todos'),
-      headers: _headers,
+      headers: jsonHeaders,
       body: jsonEncode(body),
     );
     if (response.statusCode == 201) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return Todo.fromJson(json['data'] as Map<String, dynamic>);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<Todo> updateTodo({
@@ -212,14 +210,14 @@ class TodoApi {
 
     final response = await apiClient.patch(
       Uri.parse('$baseUrl/todos/$id'),
-      headers: _headers,
+      headers: jsonHeaders,
       body: jsonEncode(body),
     );
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return Todo.fromJson(json['data'] as Map<String, dynamic>);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<Map<String, List<Todo>>> getCalendar({
@@ -229,7 +227,7 @@ class TodoApi {
     final uri = Uri.parse(
       '$baseUrl/todos/calendar',
     ).replace(queryParameters: {'year': '$year', 'month': '$month'});
-    final response = await apiClient.get(uri, headers: _headers);
+    final response = await apiClient.get(uri, headers: jsonHeaders);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final data = json['data'] as Map<String, dynamic>;
@@ -242,20 +240,20 @@ class TodoApi {
         ),
       );
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<Todo> addTag({required String id, required String tag}) async {
     final response = await apiClient.post(
       Uri.parse('$baseUrl/todos/$id/tags'),
-      headers: _headers,
+      headers: jsonHeaders,
       body: jsonEncode({'tag': tag}),
     );
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return Todo.fromJson(json['data'] as Map<String, dynamic>);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<Todo> removeTag({
@@ -265,42 +263,20 @@ class TodoApi {
     final uri = Uri.parse(
       '$baseUrl/todos/$id/tags',
     ).replace(queryParameters: {'tag': tag});
-    final response = await apiClient.delete(uri, headers: _headers);
+    final response = await apiClient.delete(uri, headers: jsonHeaders);
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       return Todo.fromJson(json['data'] as Map<String, dynamic>);
     }
-    throw _parseError(response);
+    throw parseApiError(response);
   }
 
   static Future<void> deleteTodo(String id) async {
     final response = await apiClient.delete(
       Uri.parse('$baseUrl/todos/$id'),
-      headers: _headers,
+      headers: jsonHeaders,
     );
     if (response.statusCode == 204) return;
-    throw _parseError(response);
-  }
-
-  static Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    if (AuthSession.accessToken case final token?)
-      'Authorization': 'Bearer $token',
-  };
-
-  static ApiException _parseError(http.Response response) {
-    try {
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return ApiException(
-        statusCode: response.statusCode,
-        error: ApiError.fromJson(json),
-      );
-    } catch (_) {
-      return ApiException(
-        statusCode: response.statusCode,
-        error: ApiError(code: 'INTERNAL_ERROR', message: '서버 응답을 처리할 수 없습니다.'),
-      );
-    }
+    throw parseApiError(response);
   }
 }
