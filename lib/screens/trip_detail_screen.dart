@@ -92,7 +92,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   @override
   void dispose() {
-    _detail.dispose();
+    _detail.removeListener(_onDetailChanged);
+    if (widget.detail == null) _detail.dispose(); // 주입받은 건 넘겨준 쪽이 정리
     super.dispose();
   }
 
@@ -185,7 +186,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   // 여행 일정을 텍스트로 공유(카톡·메시지 등 어디든 붙여넣기).
   void _shareTrip() {
     HapticFeedback.selectionClick();
-    Share.share(_buildShareText(), subject: widget.trip.title);
+    SharePlus.instance.share(ShareParams(text: _buildShareText(), subject: widget.trip.title));
   }
 
   String _buildShareText() {

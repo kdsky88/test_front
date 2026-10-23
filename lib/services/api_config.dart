@@ -53,6 +53,11 @@ class AuthClient extends http.BaseClient {
     _reads = RetryClient(
       _raw,
       retries: 6,
+      // 503 재시도는 Render 프록시의 503(HTML/텍스트 — 기동·배포 중)만. 우리 서버가 JSON으로 돌려준
+      // 503(예: PLACES_NOT_CONFIGURED)은 영구 상태라 1분씩 재시도해 봐야 소용없다.
+      when: (r) =>
+          r.statusCode == 503 &&
+          !(r.headers['content-type'] ?? '').contains('application/json'),
       whenError: (_, _) => true,
       delay: delay ?? (i) => Duration(seconds: 3 * (i + 1)),
     );

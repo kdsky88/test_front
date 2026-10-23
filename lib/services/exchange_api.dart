@@ -12,8 +12,19 @@ class ExchangeRates {
 
 /// 무료 환율(open.er-api.com, 키 불필요). base 기준 전 통화 환율.
 class ExchangeApi {
+  /// 실패(오프라인·타임아웃·형식 오류)는 null — 화면은 '불러오지 못했어요'로 처리.
   static Future<ExchangeRates?> fetch(String base) async {
-    final res = await http.get(Uri.parse('https://open.er-api.com/v6/latest/$base'));
+    try {
+      return await _fetch(base);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<ExchangeRates?> _fetch(String base) async {
+    final res = await http
+        .get(Uri.parse('https://open.er-api.com/v6/latest/$base'))
+        .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) return null;
     final j = jsonDecode(res.body) as Map<String, dynamic>;
     if (j['result'] != 'success') return null;

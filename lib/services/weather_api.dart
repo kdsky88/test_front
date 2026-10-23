@@ -43,7 +43,8 @@ class WeatherApi {
     // 1) 지오코딩
     final geoUri = Uri.parse(
         'https://geocoding-api.open-meteo.com/v1/search?name=${Uri.encodeComponent(region)}&count=1&language=ko');
-    final g = await http.get(geoUri);
+    // 부가 정보라 오래 기다리지 않음(타임아웃 시 호출부가 조용히 무시).
+    final g = await http.get(geoUri).timeout(const Duration(seconds: 10));
     if (g.statusCode != 200) return const [];
     final results = (jsonDecode(g.body) as Map<String, dynamic>)['results'] as List?;
     if (results == null || results.isEmpty) return const [];
@@ -68,7 +69,7 @@ class WeatherApi {
     final uri = Uri.parse('https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon'
         '&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto'
         '&start_date=${_d(from)}&end_date=${_d(to)}');
-    final f = await http.get(uri);
+    final f = await http.get(uri).timeout(const Duration(seconds: 10));
     if (f.statusCode != 200) return const [];
     final daily = (jsonDecode(f.body) as Map<String, dynamic>)['daily'] as Map<String, dynamic>?;
     if (daily == null) return const [];

@@ -18,7 +18,7 @@ class NotificationService {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(const InitializationSettings(android: android));
+    await _plugin.initialize(settings: const InitializationSettings(android: android));
     // Android 13+ 알림 권한
     await _plugin
         .resolvePlatformSpecificImplementation<
@@ -106,18 +106,22 @@ class NotificationService {
   ) async {
     try {
       await _plugin.zonedSchedule(
-        id, title, body, when, _details,
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: when,
+        notificationDetails: _details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
       return 'exact';
     } catch (_) {
       await _plugin.zonedSchedule(
-        id, title, body, when, _details,
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: when,
+        notificationDetails: _details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
       return 'inexact';
     }

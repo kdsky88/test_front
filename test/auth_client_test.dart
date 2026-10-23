@@ -173,4 +173,25 @@ void main() {
     );
     expect(attempts, 1);
   });
+
+  test('GET retries proxy 503 but not the server\'s JSON 503', () async {
+    Future<int> attemptsFor(Map<String, String> headers) async {
+      var attempts = 0;
+      final client = AuthClient(
+        inner: MockClient((_) async {
+          attempts++;
+          return http.Response('', 503, headers: headers);
+        }),
+        delay: (_) => Duration.zero,
+      );
+      addTearDown(client.close);
+      await client.get(Uri.parse('https://example.test/places/recommend'));
+      return attempts;
+    }
+
+    // Render 프록시(기동·배포 중) → 재시도
+    expect(await attemptsFor({'content-type': 'text/html'}), 7);
+    // 우리 서버의 영구 503(PLACES_NOT_CONFIGURED 등) → 즉시 반환
+    expect(await attemptsFor({'content-type': 'application/json'}), 1);
+  });
 }
