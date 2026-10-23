@@ -1,10 +1,7 @@
 import 'dart:math';
-import 'package:flutter/foundation.dart' show Factory;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/place.dart';
@@ -23,6 +20,11 @@ import '../widgets/travel_card.dart';
 import '../widgets/course_save_dialog.dart';
 import '../widgets/recommendation_action.dart';
 import '../services/day_course.dart';
+import '../services/trip_schedule.dart';
+import '../widgets/day_course_sheet.dart';
+import '../widgets/surprise_place_sheet.dart';
+import '../widgets/trip_item_card.dart';
+import '../widgets/trip_overview.dart';
 import 'currency_screen.dart';
 import 'expenses_screen.dart';
 import 'trip_calendar_screen.dart';
@@ -186,102 +188,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   // 여행 일정을 텍스트로 공유(카톡·메시지 등 어디든 붙여넣기).
   void _shareTrip() {
     HapticFeedback.selectionClick();
-    SharePlus.instance.share(ShareParams(text: _buildShareText(), subject: widget.trip.title));
+    SharePlus.instance.share(ShareParams(
+        text: buildTripShareText(widget.trip, _todos ?? const []), subject: widget.trip.title));
   }
 
-  String _buildShareText() {
-    final t = widget.trip;
-    final b = StringBuffer();
-    b.writeln('✈️ ${t.title}${t.destination != null ? ' (${t.destination})' : ''}');
-    if (t.startDate != null) {
-      final s = _dateFmt.format(t.startDate!);
-      final e = t.endDate != null ? _dateFmt.format(t.endDate!) : null;
-      b.writeln('📅 ${e != null ? '$s ~ $e' : s}');
-    }
-    final days = _days;
-    final all = _todos ?? const <Todo>[];
-    String line(Todo x) {
-      final when = x.startAt ?? x.dueAt;
-      final time = when != null ? '${_timeFmt.format(when.toLocal())} ' : '';
-      final visited = x.completed ? '✅ ' : '';
-      final place = (x.placeName != null && x.placeName != x.title) ? ' · ${x.placeName}' : '';
-      return '  $visited$time${x.title}$place';
-    }
+  List<DateTime> get _days => tripDays(widget.trip);
 
-    if (days.isEmpty) {
-      if (all.isNotEmpty) {
-        b.writeln();
-        for (final x in all) {
-          b.writeln(line(x));
-        }
-      }
-    } else {
-      final matched = <String>{};
-      for (var i = 0; i < days.length; i++) {
-        final items = _itemsOn(days[i]);
-        for (final x in items) {
-          matched.add(x.id);
-        }
-        b.writeln();
-        b.writeln('Day ${i + 1} · ${_dayFmt.format(days[i])}');
-        if (items.isEmpty) {
-          b.writeln('  (일정 없음)');
-        } else {
-          for (final x in items) {
-            b.writeln(line(x));
-          }
-        }
-      }
-      final leftovers = all.where((x) => !matched.contains(x.id)).toList();
-      if (leftovers.isNotEmpty) {
-        b.writeln();
-        b.writeln('그 외');
-        for (final x in leftovers) {
-          b.writeln(line(x));
-        }
-      }
-    }
-    b.writeln();
-    b.write('— P의 여행 플래너');
-    return b.toString();
-  }
-
-  // 여행 기록: 방문(완료)한 장소 수 / 전체 장소 수.
-  (int, int) get _visitedProgress {
-    final located = _located;
-    final visited = located.where((t) => t.completed).length;
-    return (visited, located.length);
-  }
-
-  List<DateTime> get _days {
-    final s = widget.trip.startDate, e = widget.trip.endDate;
-    if (s == null || e == null) return const [];
-    final start = DateTime(s.year, s.month, s.day);
-    final end = DateTime(e.year, e.month, e.day);
-    final days = <DateTime>[];
-    for (var d = start; !d.isAfter(end); d = d.add(const Duration(days: 1))) {
-      days.add(d);
-    }
-    return days;
-  }
-
-  List<Todo> _itemsOn(DateTime day) {
-    final d = DateTime(day.year, day.month, day.day);
-    return (_todos ?? const []).where((t) {
-      final from = (t.startAt ?? t.dueAt)?.toLocal();
-      final to = (t.dueAt ?? t.startAt)?.toLocal();
-      if (from == null || to == null) return false;
-      final f = DateTime(from.year, from.month, from.day);
-      final tt = DateTime(to.year, to.month, to.day);
-      return !d.isBefore(f) && !d.isAfter(tt);
-    }).toList()
-      ..sort((a, b) {
-        final at = (a.startAt ?? a.dueAt);
-        final bt = (b.startAt ?? b.dueAt);
-        if (at == null || bt == null) return 0;
-        return at.compareTo(bt);
-      });
-  }
+  List<Todo> _itemsOn(DateTime day) => itemsOnDay(_todos ?? const [], day);
 
   @override
   Widget build(BuildContext context) {
@@ -416,12 +329,13 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       title: const Text('지도 · 날씨 · 여행 기록'),
       initiallyExpanded: !active,
       children: [
-        _recordBar(),
-        _weatherStrip(),
+        // 여행 기록: 방문(완료)한 장소 수 / 전체 장소 수.
+        TripRecordBar(visited: located.where((t) => t.completed).length, total: located.length),
+        TripWeatherStrip(weather: _weather),
         if (located.isNotEmpty) ...[
           TextButton.icon(onPressed: _openPreview,
             icon: const Icon(Icons.slideshow_outlined), label: const Text('여행 미리보기')),
-          _tripMap(located),
+          TripMapCard(located: located, onPinTap: _showPlace, onFullscreen: _openMap),
         ],
       ],
     ))));
@@ -552,121 +466,14 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   void _showSurprise(Place initial) {
-    Place current = initial;
-    GoogleMapController? mapCtrl;
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) {
-          final theme = Theme.of(ctx);
-          Future<void> reroll() async {
-            HapticFeedback.selectionClick();
-            final type = _rng.nextBool() ? 'attraction' : 'food';
-            final places = await _recosFor(type) ?? const [];
-            if (places.isEmpty || !ctx.mounted) return;
-            setSheet(() => current = places[_rng.nextInt(places.length)]);
-            mapCtrl?.animateCamera(
-                CameraUpdate.newLatLngZoom(LatLng(current.latitude, current.longitude), 15));
-          }
-
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('🎲 장소 추천',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Text(current.name,
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (current.category != null)
-                        Text(current.category!,
-                            style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
-                      if (current.rating != null) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.star, size: 15, color: Colors.amber),
-                        const SizedBox(width: 2),
-                        Text(current.rating!.toStringAsFixed(1),
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                      ],
-                    ],
-                  ),
-                  if (current.description != null) ...[
-                    const SizedBox(height: 8),
-                    Text(current.description!,
-                        style: TextStyle(fontSize: 13.5, height: 1.35, color: theme.colorScheme.onSurface)),
-                  ],
-                  if (current.address != null) ...[
-                    const SizedBox(height: 8),
-                    Text(current.address!,
-                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
-                  ],
-                  const SizedBox(height: 12),
-                  // 위치 미리보기(핀). 팬/줌은 시트와 안 싸우게 끄고, 탭하면 구글 지도로.
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      height: 150,
-                      child: GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: LatLng(current.latitude, current.longitude),
-                          zoom: 15,
-                        ),
-                        markers: {
-                          Marker(
-                            markerId: const MarkerId('surprise'),
-                            position: LatLng(current.latitude, current.longitude),
-                          ),
-                        },
-                        onMapCreated: (c) => mapCtrl = c,
-                        onTap: (_) => openInGoogleMaps(lat: current.latitude, lng: current.longitude),
-                        zoomGesturesEnabled: false,
-                        scrollGesturesEnabled: false,
-                        rotateGesturesEnabled: false,
-                        tiltGesturesEnabled: false,
-                        zoomControlsEnabled: false,
-                        myLocationButtonEnabled: false,
-                        mapToolbarEnabled: false,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _addFromSurprise(current),
-                          icon: const Icon(Icons.add),
-                          label: const Text('일정으로 추가'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => openInGoogleMaps(
-                            lat: current.latitude, lng: current.longitude, directions: true),
-                        icon: const Icon(Icons.directions),
-                        label: const Text('길찾기'),
-                      ),
-                    ],
-                  ),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: reroll,
-                      icon: const Icon(Icons.casino_outlined),
-                      label: const Text('다른 거'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+      builder: (_) => SurprisePlaceSheet(
+        initial: initial,
+        recos: _recosFor,
+        rng: _rng,
+        onAdd: _addFromSurprise,
       ),
     );
   }
@@ -749,160 +556,19 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       buildDayCourse(attractions, foods,
           distance: Geolocator.distanceBetween, rng: _rng);
 
-  // 슬롯별 핀 색: 아침=하늘, 점심=주황, 저녁=보라.
-  static double _slotHue(String slot) => switch (slot) {
-        '점심' => BitmapDescriptor.hueOrange,
-        '저녁' => BitmapDescriptor.hueViolet,
-        _ => BitmapDescriptor.hueAzure,
-      };
-
-  // 목록에서도 어느 핀인지 알아보게, 위 hue와 같은 색을 목록 아이콘에 쓴다
-  // (구글 기본 마커 = HSV(hue,1,1)).
-  static Color _slotColor(String slot) =>
-      HSVColor.fromAHSV(1, _slotHue(slot), 1, 1).toColor();
-
   void _showCourse(List<(String, Place)> initial) {
     if (initial.isEmpty) return;
-    var stops = initial;
-    GoogleMapController? courseMap;
-    List<LatLng> pointsOf(List<(String, Place)> list) =>
-        [for (final (_, p) in list) LatLng(p.latitude, p.longitude)];
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
       isScrollControlled: true, // 지도 + 6곳이라 기본 높이로는 모자람
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) {
-          final theme = Theme.of(ctx);
-          final points = pointsOf(stops);
-          return SafeArea(
-            child: ConstrainedBox(
-              constraints:
-                  BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
-              child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('🗺️ 하루 코스',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  // 동선 미리보기: 순서대로 선으로 잇고 슬롯 색 핀(탭하면 장소 이름).
-                  // 확대·이동 가능 — EagerGestureRecognizer로 시트 스크롤에 안 먹히게.
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: SizedBox(
-                      height: 260,
-                      child: GoogleMap(
-                        initialCameraPosition: CameraPosition(target: points.first, zoom: 14),
-                        markers: {
-                          for (var i = 0; i < stops.length; i++)
-                            Marker(
-                              markerId: MarkerId('course$i'),
-                              position: points[i],
-                              icon: BitmapDescriptor.defaultMarkerWithHue(_slotHue(stops[i].$1)),
-                              infoWindow:
-                                  InfoWindow(title: stops[i].$2.name, snippet: stops[i].$1),
-                            ),
-                        },
-                        polylines: {
-                          Polyline(
-                            polylineId: const PolylineId('course'),
-                            color: theme.colorScheme.primary,
-                            width: 4,
-                            points: points,
-                          ),
-                        },
-                        onMapCreated: (c) {
-                          courseMap = c;
-                          _fitBounds(c, points);
-                        },
-                        rotateGesturesEnabled: false,
-                        tiltGesturesEnabled: false,
-                        zoomControlsEnabled: true,
-                        myLocationButtonEnabled: false,
-                        mapToolbarEnabled: false,
-                        gestureRecognizers: {
-                          Factory<OneSequenceGestureRecognizer>(
-                              () => EagerGestureRecognizer()),
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final (slot, p) in stops)
-                    InkWell(
-                      onTap: () => openInGoogleMaps(lat: p.latitude, lng: p.longitude, directions: true),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Icon(Icons.place, size: 18, color: _slotColor(slot)),
-                            const SizedBox(width: 6),
-                            Container(
-                              width: 46,
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(slot,
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimaryContainer)),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  if (p.category != null)
-                                    Text(p.category!,
-                                        style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                            Icon(Icons.directions, size: 20, color: theme.colorScheme.primary),
-                          ],
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _addCourse(stops),
-                          icon: const Icon(Icons.playlist_add),
-                          label: const Text('전체 일정에 담기'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          HapticFeedback.selectionClick();
-                          setSheet(() => stops = _buildCourse(
-                                _recoCache['attraction'] ?? const [],
-                                _recoCache['food'] ?? const [],
-                              ));
-                          final c = courseMap;
-                          if (c != null) _fitBounds(c, pointsOf(stops));
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('다시'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-              ),
-            ),
-          );
-        },
+      builder: (_) => DayCourseSheet(
+        initial: initial,
+        rebuild: () => _buildCourse(
+          _recoCache['attraction'] ?? const [],
+          _recoCache['food'] ?? const [],
+        ),
+        onAdd: _addCourse,
       ),
     );
   }
@@ -950,160 +616,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
   }
 
-  // 목적지 날씨 가로 스트립(여행 기간, 예보 범위 내).
-  Widget _weatherStrip() {
-    final w = _weather;
-    if (w == null || w.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    return SizedBox(
-      height: 96,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        itemCount: w.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final d = w[i];
-          return Container(
-            width: 74,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(_dayFmt.format(d.date),
-                    style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
-                const SizedBox(height: 4),
-                Text(d.emoji, style: const TextStyle(fontSize: 22)),
-                const SizedBox(height: 4),
-                Text('${d.tMax.round()}° / ${d.tMin.round()}°',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // 여행 기록 진행바: 방문(완료) N / 전체 M 장소.
-  Widget _recordBar() {
-    final (visited, total) = _visitedProgress;
-    if (total == 0) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    final done = visited == total;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(done ? Icons.emoji_events : Icons.flag_outlined,
-                  size: 16, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              Text('여행 기록',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-              const Spacer(),
-              Text(done ? '완주! $visited곳 다 돌았어요 🎉' : '방문 $visited / $total 곳',
-                  style: TextStyle(
-                      color: done ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                      fontSize: 12.5,
-                      fontWeight: done ? FontWeight.w700 : FontWeight.w500)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: total == 0 ? 0 : visited / total,
-              minHeight: 7,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 여행 전체 지도(구글맵): 위치가 있는 일정을 핀으로. 인라인에서도 확대/이동 되고, 전체화면 버튼 제공.
-  Widget _tripMap(List<Todo> located) {
-    final markers = <Marker>{
-      for (final t in located)
-        Marker(
-          markerId: MarkerId(t.id),
-          position: LatLng(t.latitude!, t.longitude!),
-          infoWindow: InfoWindow(title: t.placeName ?? t.title),
-          onTap: () => _showPlace(t),
-        ),
-    };
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        child: SizedBox(
-          height: 200,
-          child: Stack(
-            children: [
-              GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(located.first.latitude!, located.first.longitude!),
-                  zoom: 12,
-                ),
-                markers: markers,
-                onMapCreated: (controller) => _fitBounds(controller,
-                    [for (final t in located) LatLng(t.latitude!, t.longitude!)]),
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                mapToolbarEnabled: false,
-                // 리스트 안에서도 지도가 드래그/줌 제스처를 잡도록(스크롤에 안 먹힘).
-                gestureRecognizers: {
-                  Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-                },
-              ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Material(
-                  color: Colors.white,
-                  shape: const CircleBorder(),
-                  elevation: 2,
-                  child: IconButton(
-                    icon: const Icon(Icons.fullscreen),
-                    tooltip: '전체화면 지도',
-                    onPressed: () => _openMap(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 핀이 여러 개면 다 보이게 카메라 맞춤(지도 레이아웃 후 호출).
-  void _fitBounds(GoogleMapController controller, List<LatLng> points) {
-    if (points.length < 2) return;
-    var minLat = points.first.latitude, maxLat = minLat;
-    var minLng = points.first.longitude, maxLng = minLng;
-    for (final p in points) {
-      minLat = p.latitude < minLat ? p.latitude : minLat;
-      maxLat = p.latitude > maxLat ? p.latitude : maxLat;
-      minLng = p.longitude < minLng ? p.longitude : minLng;
-      maxLng = p.longitude > maxLng ? p.longitude : maxLng;
-    }
-    final bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 48));
-    });
-  }
-
   void _showPlace(Todo todo) {
     final when = todo.startAt ?? todo.dueAt;
     final time = when != null ? '${_timeFmt.format(when.toLocal())}  ' : '';
@@ -1148,137 +660,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
-  // 스와이프 삭제 시 뒤로 드러나는 빨간 삭제 배경.
-  Widget _swipeDeleteBg(ThemeData theme) => Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.error,
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete, color: Colors.white),
-            SizedBox(width: 6),
-            Text('삭제', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ],
-        ),
+  Widget _itemCard(Todo todo) => TripItemCard(
+        todo: todo,
+        offline: _offline,
+        // 탭 = 지도(장소 있을 때), 없으면 수정. 수정은 우측 메뉴로.
+        onTap: () => todo.latitude != null ? _openMap(focusId: todo.id) : _editItem(todo),
+        onToggleVisited: () => _toggleVisited(todo),
+        onEdit: () => _editItem(todo),
+        onDelete: () => _deleteItem(todo),
       );
-
-  Widget _itemCard(Todo todo) {
-    final theme = Theme.of(context);
-    final when = todo.startAt ?? todo.dueAt;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Dismissible(
-        key: ValueKey(todo.id),
-        direction: _offline ? DismissDirection.none : DismissDirection.endToStart,
-        background: _swipeDeleteBg(theme),
-        // 확인 없이 바로 삭제 → _deleteItem이 즉시 목록에서 제거(트리 일관성 유지) + 실행취소 스낵바.
-        onDismissed: (_) => _deleteItem(todo),
-        child: Card(
-          child: InkWell(
-          // 탭 = 지도(장소 있을 때), 없으면 수정. 수정은 우측 연필로.
-          onTap: () => todo.latitude != null ? _openMap(focusId: todo.id) : _editItem(todo),
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                // 방문 체크(완료 토글)
-                IconButton(
-                  icon: Icon(
-                    todo.completed ? Icons.check_circle : Icons.radio_button_unchecked,
-                    color: todo.completed ? theme.colorScheme.secondary : theme.colorScheme.outline,
-                    size: 22,
-                  ),
-                  tooltip: todo.completed ? '방문 취소' : '방문 체크',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _offline ? null : () => _toggleVisited(todo),
-                ),
-                // 시간 배지
-                SizedBox(
-                  width: 42,
-                  child: Text(
-                    when != null ? _timeFmt.format(when.toLocal()) : '—',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                Container(width: 1, height: 34, color: theme.dividerColor),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        todo.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          decoration: todo.completed ? TextDecoration.lineThrough : null,
-                          color: todo.completed ? theme.colorScheme.outline : null,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (todo.placeName != null) ...[
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Icon(Icons.place_outlined, size: 13, color: theme.colorScheme.onSurfaceVariant),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                todo.placeName!,
-                                style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  tooltip: '옵션',
-                  icon: const Icon(Icons.more_vert, size: 20),
-                  onSelected: (v) {
-                    if (v == 'edit') _editItem(todo);
-                    if (v == 'delete') _deleteItem(todo);
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('수정'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_outline),
-                        title: Text('삭제'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      ),
-    );
-  }
 
   Widget _emptyState() {
     final theme = Theme.of(context);
